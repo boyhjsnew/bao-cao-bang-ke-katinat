@@ -138,7 +138,7 @@ export default function Modal(props) {
             <label htmlFor="username">Từ ngày</label>
 
             <Calendar
-              style={{ width: "396px" }}
+              style={{ width: "326px" }}
               value={fromDate}
               onChange={(e) => setFromDate(e.value)}
               dateFormat="dd/mm/yy"
@@ -151,7 +151,7 @@ export default function Modal(props) {
         >
           <label htmlFor="username">Đến ngày</label>
           <Calendar
-            style={{ width: "396px" }}
+            style={{ width: "326px" }}
             value={toDate}
             onChange={(e) => setToDate(e.value)}
             dateFormat="dd/mm/yy"
@@ -164,7 +164,7 @@ export default function Modal(props) {
           <label htmlFor="username">Ký hiệu</label>
 
           <Dropdown
-            style={{ width: "396px" }}
+            style={{ width: "326px" }}
             value={selectedSeri}
             onChange={(e) => setSelectedSeri(e.value)}
             options={series}
@@ -178,7 +178,7 @@ export default function Modal(props) {
           <label htmlFor="username">Trạng thái hoá đơn</label>
 
           <Dropdown
-            style={{ width: "396px" }}
+            style={{ width: "326px" }}
             options={trangthaiCQT}
             optionLabel="statusTax"
             onChange={(e) => setstatusTax(e.value)}

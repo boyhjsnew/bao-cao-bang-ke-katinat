@@ -10,6 +10,8 @@ import ReactDataTable from "./Components/ReactDataTable";
 import { useState } from "react";
 import Modal from "./Components/Modal";
 import * as XLSX from "xlsx"; // Import xlsx for Excel export
+import * as ExcelJS from "exceljs";
+
 import { saveAs } from "file-saver"; // Import file-saver to save the file
 
 function App() {
@@ -26,47 +28,95 @@ function App() {
       ...detail, // Gộp thông tin chi tiết
     }))
   );
-  const exportToExcel = () => {
-    // Prepare the headers and data from the DataTable
-    const wsData = flattenedInvoices.map((row) => ({
-      "Ký hiệu": row.inv_invoiceSeries,
-      "Trạng thái gửi CQT": row.is_success == 1 ? "Thành công" : "Có lỗi",
-      "Ngày hoá đơn": new Date(row.inv_invoiceIssuedDate).toLocaleDateString(
-        "vi-VN",
-        {
+  const exportToExcel = async () => {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("bao-cao-chi-tiet");
+
+    // Thêm tiêu đề
+    const headers = [
+      "Ký hiệu",
+      "Trạng thái gửi CQT",
+      "Ngày hoá đơn",
+      "Số hoá đơn",
+      "Số đơn hàng",
+      "Tên đơn vị mua",
+      "Tên người mua",
+      "Địa chỉ",
+      "Mã số thuế",
+      "Mã hàng",
+      "Tên hàng",
+      "Đơn vị tính",
+      "Tuổi vàng",
+      "Số lượng",
+      "Đơn giá",
+      "Trọng lượng",
+      "Tiền công",
+      "Tổng tiền hàng",
+      "Tổng tiền CK",
+      "Tổng tiền trước thuế",
+      "Thuế suất",
+      "Tổng tiền thuế",
+      "Tổng tiền thanh toán",
+      "Tính chất hàng hoá",
+      "Mã tiền tệ",
+      "Tỷ giá",
+      "Hình thức TT",
+      "Mã tra cứu",
+      "Người lập",
+      "Trạng thái",
+    ];
+    worksheet.addRow(headers);
+
+    // Áp dụng style cho tiêu đề
+    const headerRow = worksheet.getRow(1);
+    headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    headerRow.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FF0070C0" },
+    };
+    headerRow.alignment = { horizontal: "center" };
+
+    // Thêm viền cho tiêu đề
+    headerRow.eachCell((cell) => {
+      cell.border = {
+        top: { style: "thin", color: { argb: "FF000000" } },
+        left: { style: "thin", color: { argb: "FF000000" } },
+        bottom: { style: "thin", color: { argb: "FF000000" } },
+        right: { style: "thin", color: { argb: "FF000000" } },
+      };
+    });
+
+    // Thêm dữ liệu
+    flattenedInvoices.forEach((row) => {
+      const dataRow = worksheet.addRow([
+        row.inv_invoiceSeries,
+        row.is_success == 1 ? "Thành công" : "Có lỗi",
+        new Date(row.inv_invoiceIssuedDate).toLocaleDateString("vi-VN", {
           day: "2-digit",
           month: "2-digit",
           year: "numeric",
-        }
-      ),
-      "Số hoá đơn": row.inv_invoiceNumber,
-      "Số đơn hàng": row.so_benh_an,
-      "Tên đơn vị mua": row.inv_buyerLegalName,
-      "Tên người mua": row.inv_buyerDisplayName,
-      "Địa chỉ": row.inv_buyerAddressLine,
-      "Mã số thuế": row.inv_buyerTaxCode,
-      "Mã hàng": row.inv_itemCode,
-      "Tên hàng": row.inv_itemName,
-      "Đơn vị tính": row.inv_unitCode,
-      "Tuổi vàng": row.inv_tuoivang,
-      "Số lượng": row.inv_quantity,
-      "Đơn giá": row.inv_unitPrice ? row.inv_unitPrice : null, // Use raw value
-      // Ensure 3 decimal places and force the dot as decimal separator
-      "Trọng lượng": row.inv_trongluong
-        ? parseFloat(row.inv_trongluong).toFixed(3).replace(",", ".")
-        : null, // Ensure 3 decimal points and replace comma with dot
-      "Tiền công": row.inv_tiencong ? row.inv_tiencong : null, // Use raw value
-      "Tổng tiền hàng": row.inv_TotalAmountWithoutVat
-        ? row.inv_TotalAmountWithoutVat
-        : null, // Use raw value
-      "Tổng tiền CK": row.inv_discountAmount ? row.inv_discountAmount : null, // Use raw value
-      "Tổng tiền trước thuế": row.inv_TotalAmountWithoutVat
-        ? row.inv_TotalAmountWithoutVat
-        : null, // Use raw value
-      "Thuế suất": row.inv_taxRate ? `${row.inv_taxRate}%` : "",
-      "Tổng tiền thuế": row.inv_taxAmount ? row.inv_taxAmount : null, // Use raw value
-      "Tổng tiền thanh toán": row.inv_TotalAmount ? row.inv_TotalAmount : null, // Use raw value
-      "Tính chất hàng hoá":
+        }),
+        row.inv_invoiceNumber,
+        row.so_benh_an,
+        row.inv_buyerLegalName,
+        row.inv_buyerDisplayName,
+        row.inv_buyerAddressLine,
+        row.inv_buyerTaxCode,
+        row.inv_itemCode,
+        row.inv_itemName,
+        row.inv_unitCode,
+        row.inv_tuoivang,
+        row.inv_quantity,
+        row.inv_unitPrice || "",
+        row.inv_trongluong,
+        row.inv_tiencong || "",
+        row.inv_TotalAmountWithoutVat || "",
+        row.inv_discountAmount || "",
+        row.inv_TotalAmountWithoutVat || "",
+        row.inv_taxRate ? `${row.inv_taxRate}%` : "",
+        row.inv_taxAmount || "",
+        row.inv_TotalAmount || "",
         row.tchat == 1
           ? "Hàng hoá, dịch vụ"
           : row.tchat == 2
@@ -74,56 +124,105 @@ function App() {
           : row.tchat == 3
           ? "Chiết khấu thương mai"
           : "Ghi chú diễn giải",
-      "Mã tiền tệ": row.inv_currencyCode,
-      "Tỷ giá": row.inv_exchangeRate,
-      "Hình thức TT": row.inv_paymentMethodName,
-      "Mã tra cứu": row.sobaomat,
-      "Người lập": row.inv_creator, // Assuming this field exists
-      "Trạng thái":
+        row.inv_currencyCode,
+        row.inv_exchangeRate,
+        row.inv_paymentMethodName,
+        row.sobaomat,
+        row.inv_creator,
         row.is_tthdon == 0
           ? "Gốc"
           : row.is_tthdon == 6
           ? "Bị thay thế"
           : "Thay thế",
-    }));
+      ]);
 
-    // Create worksheet
-    const ws = XLSX.utils.json_to_sheet(wsData);
-
-    // Ensure numbers are treated as numbers in Excel
-    const range = ws["!ref"];
-    const cells = XLSX.utils.decode_range(range);
-
-    // Loop through all rows and columns
-    for (let R = cells.s.r; R <= cells.e.r; ++R) {
-      for (let C = cells.s.c; C <= cells.e.c; ++C) {
-        const address = { r: R, c: C };
-        const cell = ws[XLSX.utils.encode_cell(address)];
-
-        // Ensure that numbers are formatted correctly
-        if (cell && cell.v !== null && !isNaN(cell.v)) {
-          cell.t = "n"; // Mark as number type in Excel
-          // Format numbers with dot as decimal separator
-          if (typeof cell.v === "number") {
-            // Ensure number is formatted with dot as decimal separator
-            cell.v = parseFloat(cell.v).toFixed(3); // Force 3 decimals
-          }
-        }
-      }
-    }
-
-    // Create workbook
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Invoices");
-
-    // Export to Excel
-    const excelFile = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-    const blob = new Blob([excelFile], {
-      bookType: "xlsx",
-      type: "application/octet-stream",
+      // Thêm viền cho từng ô dữ liệu
+      dataRow.eachCell((cell) => {
+        cell.border = {
+          top: { style: "thin", color: { argb: "FF000000" } },
+          left: { style: "thin", color: { argb: "FF000000" } },
+          bottom: { style: "thin", color: { argb: "FF000000" } },
+          right: { style: "thin", color: { argb: "FF000000" } },
+        };
+      });
     });
 
-    saveAs(blob, "Invoices.xlsx"); // Download the Excel file
+    // Tính tổng các cột cần tính
+    const totalTienCong = flattenedInvoices.reduce(
+      (sum, row) => sum + (row.inv_tiencong || 0),
+      0
+    );
+    const totalTienHang = flattenedInvoices.reduce(
+      (sum, row) => sum + (row.inv_TotalAmountWithoutVat || 0),
+      0
+    );
+    const totalTruocThue = flattenedInvoices.reduce(
+      (sum, row) => sum + (row.inv_TotalAmountWithoutVat || 0),
+      0
+    );
+    const totalThanhToan = flattenedInvoices.reduce(
+      (sum, row) => sum + (row.inv_TotalAmount || 0),
+      0
+    );
+
+    // Thêm dòng tổng cộng
+    const totalRow = [
+      "Tổng cộng", // Gộp các ô còn lại
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      totalTienCong,
+      totalTienHang,
+      "",
+      totalTruocThue,
+      "",
+      "",
+      totalThanhToan,
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+    ];
+    const lastRow = worksheet.addRow(totalRow);
+
+    // Định dạng dòng tổng cộng
+    lastRow.font = { bold: true, color: { argb: "FF000000" } };
+    lastRow.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FFCCCCCC" },
+    };
+    lastRow.alignment = { horizontal: "right" };
+
+    // Thêm viền cho dòng tổng cộng
+    lastRow.eachCell((cell) => {
+      cell.border = {
+        top: { style: "thin", color: { argb: "FF000000" } },
+        left: { style: "thin", color: { argb: "FF000000" } },
+        bottom: { style: "thin", color: { argb: "FF000000" } },
+        right: { style: "thin", color: { argb: "FF000000" } },
+      };
+    });
+
+    // Lưu file
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/octet-stream" });
+    saveAs(blob, "bao-cao-chi-tiet.xlsx");
   };
 
   return (
@@ -135,7 +234,7 @@ function App() {
           borderWidth: "0.1px",
           borderColor: "#DEE2E6",
         }}
-        className="flex col h-3rem  border-solid mr-3 ml-3 mt-3 border-round-sm  "
+        className="flex col h-3rem  border-solid mr-3 ml-3 mt-3 border-round-sm"
       >
         <Button
           label="Lọc dữ liệu"
