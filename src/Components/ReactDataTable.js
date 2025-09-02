@@ -3,13 +3,18 @@ import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 
 export default function ReactDataTable(props) {
-  // Chuyển đổi dữ liệu
-  const flattenedInvoices = props.invoices.flatMap((invoice) =>
-    invoice.details.map((detail) => ({
-      ...invoice, // Thêm thông tin hóa đơn vào chi tiết
-      ...detail, // Gộp thông tin chi tiết
-    }))
-  );
+  // Chuyển đổi dữ liệu với kiểm tra an toàn
+  const flattenedInvoices = (props.invoices || []).flatMap((invoice) => {
+    // Kiểm tra nếu invoice.details tồn tại và là mảng
+    if (invoice && invoice.details && Array.isArray(invoice.details)) {
+      return invoice.details.map((detail) => ({
+        ...invoice, // Thêm thông tin hóa đơn vào chi tiết
+        ...detail, // Gộp thông tin chi tiết
+      }));
+    }
+    // Nếu không có details, trả về invoice gốc
+    return [invoice];
+  });
 
   return (
     <div
@@ -28,7 +33,7 @@ export default function ReactDataTable(props) {
           rows={5}
           scrollable
           sortField="true"
-          rowsPerPageOptions={[props.invoices.length]}
+          rowsPerPageOptions={[(props.invoices || []).length]}
         >
           {/* Cột thông tin hóa đơn */}
           <Column
@@ -52,6 +57,16 @@ export default function ReactDataTable(props) {
           ></Column>
           <Column
             sortable
+            field="inv_invoiceAuth_id"
+            header="id"
+            style={{
+              width: "1%",
+              fontSize: "14px",
+              minWidth: "160px",
+            }}
+          ></Column>
+          <Column
+            sortable
             field="is_success"
             header="Trạng thái gửi CQT"
             style={{
@@ -60,7 +75,7 @@ export default function ReactDataTable(props) {
               minWidth: "160px",
             }}
             body={(rowData) =>
-              rowData.is_success == 1 ? "Thành công" : "Có lỗi"
+              rowData.is_success === 1 ? "Thành công" : "Có lỗi"
             }
           ></Column>
           <Column
@@ -73,6 +88,7 @@ export default function ReactDataTable(props) {
               minWidth: "160px",
             }}
             body={(rowData) => {
+              if (!rowData.inv_invoiceIssuedDate) return "";
               const date = new Date(rowData.inv_invoiceIssuedDate);
               return date.toLocaleDateString("vi-VN", {
                 day: "2-digit",
@@ -86,6 +102,16 @@ export default function ReactDataTable(props) {
             sortable
             field="inv_invoiceNumber"
             header="Số hoá đơn"
+            style={{
+              width: "1%",
+              fontSize: "14px",
+              minWidth: "160px",
+            }}
+          ></Column>
+          <Column
+            sortable
+            field="inv_invoiceNumber"
+            header="Key API"
             style={{
               width: "1%",
               fontSize: "14px",
@@ -357,11 +383,11 @@ export default function ReactDataTable(props) {
               minWidth: "160px",
             }}
             body={(rowData) =>
-              rowData.tchat == 1
+              rowData.tchat === 1
                 ? "Hàng hoá, dịch vụ"
-                : rowData.tchat == 2
+                : rowData.tchat === 2
                 ? "Khuyến mãi"
-                : rowData.tchat == 3
+                : rowData.tchat === 3
                 ? "Chiết khấu thương mai"
                 : "Ghi chú diễn giải"
             }
@@ -441,6 +467,16 @@ export default function ReactDataTable(props) {
                   result = "Ghi chú diễn giải";
               }
               return result;
+            }}
+          ></Column>
+          <Column
+            sortable
+            field="tthai"
+            header="Trạng thái"
+            style={{
+              width: "1%",
+              fontSize: "14px",
+              minWidth: "160px",
             }}
           ></Column>
         </DataTable>

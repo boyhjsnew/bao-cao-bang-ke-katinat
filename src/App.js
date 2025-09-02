@@ -22,12 +22,17 @@ function App() {
   const handleInvoices = (invoicesData) => {
     setInvoices(invoicesData);
   };
-  const flattenedInvoices = invoices.flatMap((invoice) =>
-    invoice.details.map((detail) => ({
-      ...invoice, // Thêm thông tin hóa đơn vào chi tiết
-      ...detail, // Gộp thông tin chi tiết
-    }))
-  );
+  const flattenedInvoices = (invoices || []).flatMap((invoice) => {
+    // Kiểm tra nếu invoice.details tồn tại và là mảng
+    if (invoice && invoice.details && Array.isArray(invoice.details)) {
+      return invoice.details.map((detail) => ({
+        ...invoice, // Thêm thông tin hóa đơn vào chi tiết
+        ...detail, // Gộp thông tin chi tiết
+      }));
+    }
+    // Nếu không có details, trả về invoice gốc
+    return [invoice];
+  });
   const exportToExcel = async () => {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("bao-cao-chi-tiet");
@@ -35,6 +40,7 @@ function App() {
     // Thêm tiêu đề
     const headers = [
       "Ký hiệu",
+      "ID",
       "Trạng thái gửi CQT",
       "Ngày hoá đơn",
       "Số hoá đơn",
@@ -46,11 +52,11 @@ function App() {
       "Mã hàng",
       "Tên hàng",
       "Đơn vị tính",
-      "Tuổi vàng",
+      // "Tuổi vàng",
       "Số lượng",
       "Đơn giá",
-      "Trọng lượng",
-      "Tiền công",
+      // "Trọng lượng",
+      // "Tiền công",
       "Tổng tiền hàng",
       "Tổng tiền CK",
       "Tổng tiền trước thuế",
@@ -90,50 +96,53 @@ function App() {
     // Thêm dữ liệu
     flattenedInvoices.forEach((row) => {
       const dataRow = worksheet.addRow([
-        row.inv_invoiceSeries,
-        row.is_success == 1 ? "Thành công" : "Có lỗi",
-        new Date(row.inv_invoiceIssuedDate).toLocaleDateString("vi-VN", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-        }),
-        row.inv_invoiceNumber,
-        row.so_benh_an,
-        row.inv_buyerLegalName,
-        row.inv_buyerDisplayName,
-        row.inv_buyerAddressLine,
-        row.inv_buyerTaxCode,
-        row.inv_itemCode,
-        row.inv_itemName,
-        row.inv_unitCode,
-        row.inv_tuoivang,
-        row.inv_quantity,
-        row.inv_unitPrice || "",
-        row.inv_trongluong,
-        row.inv_tiencong || "",
-        row.inv_TotalAmountWithoutVat || "",
-        row.inv_discountAmount || "",
-        row.inv_TotalAmountWithoutVat || "",
-        row.inv_taxRate ? `${row.inv_taxRate}%` : "",
-        row.inv_taxAmount || "",
-        row.inv_TotalAmount || "",
-        row.tchat == 1
+        row.inv_invoiceSeries || "",
+        row.inv_invoiceAuth_id || "",
+        row.is_success === 1 ? "Thành công" : "Có lỗi",
+        row.inv_invoiceIssuedDate
+          ? new Date(row.inv_invoiceIssuedDate).toLocaleDateString("vi-VN", {
+              day: "2-digit",
+              month: "2-digit",
+              year: "numeric",
+            })
+          : "",
+        row.inv_invoiceNumber || "",
+        row.so_benh_an || "",
+        row.inv_buyerLegalName || "",
+        row.inv_buyerDisplayName || "",
+        row.inv_buyerAddressLine || "",
+        row.inv_buyerTaxCode || "",
+        row.inv_itemCode || "",
+        row.inv_itemName || "",
+        row.inv_unitCode || "",
+        // row.inv_tuoivang,
+        row.inv_quantity || "",
+        row.inv_unitPrice ? row.inv_unitPrice.toFixed(2) : "",
+        // row.inv_trongluong,
+        // row.inv_tiencong || "",
+        row.inv_TotalAmountWithoutVat
+          ? row.inv_TotalAmountWithoutVat.toFixed(0)
+          : "",
+        row.inv_discountAmount ? row.inv_discountAmount.toFixed(0) : "",
+        row.inv_TotalAmountWithoutVat
+          ? row.inv_TotalAmountWithoutVat.toFixed(0)
+          : "",
+        row.ma_thue || "",
+        row.inv_vatAmount ? row.inv_vatAmount.toFixed(0) : "",
+        row.inv_TotalAmount ? row.inv_TotalAmount.toFixed(0) : "",
+        row.tchat === 1
           ? "Hàng hoá, dịch vụ"
-          : row.tchat == 2
+          : row.tchat === 2
           ? "Khuyến mãi"
-          : row.tchat == 3
+          : row.tchat === 3
           ? "Chiết khấu thương mai"
           : "Ghi chú diễn giải",
-        row.inv_currencyCode,
-        row.inv_exchangeRate,
-        row.inv_paymentMethodName,
-        row.sobaomat,
-        row.inv_creator,
-        row.is_tthdon == 0
-          ? "Gốc"
-          : row.is_tthdon == 6
-          ? "Bị thay thế"
-          : "Thay thế",
+        row.inv_currencyCode || "",
+        row.inv_exchangeRate || "",
+        row.inv_paymentMethodName || "",
+        row.sobaomat || "",
+        row.inv_creator || "",
+        row.tthai || "",
       ]);
 
       // Thêm viền cho từng ô dữ liệu
