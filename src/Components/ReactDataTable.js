@@ -45,43 +45,51 @@ export default function ReactDataTable(props) {
             }}
             body={(rowData, options) => options.rowIndex + 1}
           ></Column>
+
+          <Column
+            sortable
+            field="inv_invoiceNumber"
+            header="Số HĐ"
+            style={{
+              width: "1%",
+              fontSize: "14px",
+              minWidth: "160px",
+            }}
+          ></Column>
+
           <Column
             sortable
             field="inv_invoiceSeries"
-            header="Ký hiệu"
+            header="Ký Hiệu"
             style={{
               width: "1%",
               fontSize: "14px",
               minWidth: "160px",
             }}
           ></Column>
+
           <Column
             sortable
-            field="inv_invoiceAuth_id"
-            header="id"
+            field="inv_itemName"
+            header="Tuyến"
             style={{
-              width: "1%",
+              width: "10%",
               fontSize: "14px",
               minWidth: "160px",
             }}
-          ></Column>
-          <Column
-            sortable
-            field="is_success"
-            header="Trạng thái gửi CQT"
-            style={{
-              width: "1%",
-              fontSize: "14px",
-              minWidth: "160px",
+            body={(rowData) => {
+              const taxCode = rowData.inv_buyerTaxCode || "3500676761";
+              const series = rowData.inv_invoiceSeries;
+              return props.getTuyenBySeries
+                ? props.getTuyenBySeries(taxCode, series)
+                : series;
             }}
-            body={(rowData) =>
-              rowData.is_success === 1 ? "Thành công" : "Có lỗi"
-            }
           ></Column>
+
           <Column
             sortable
             field="inv_invoiceIssuedDate"
-            header="Ngày hoá đơn"
+            header="Ngày Hóa Đơn"
             style={{
               width: "1%",
               fontSize: "14px",
@@ -100,114 +108,15 @@ export default function ReactDataTable(props) {
 
           <Column
             sortable
-            field="inv_invoiceNumber"
-            header="Số hoá đơn"
+            field="inv_departureDate"
+            header="Biển số xe"
             style={{
               width: "1%",
               fontSize: "14px",
               minWidth: "160px",
             }}
           ></Column>
-          <Column
-            sortable
-            field="inv_invoiceNumber"
-            header="Key API"
-            style={{
-              width: "1%",
-              fontSize: "14px",
-              minWidth: "160px",
-            }}
-          ></Column>
-          <Column
-            sortable
-            field="so_benh_an"
-            header="Số đơn hàng"
-            style={{
-              width: "1%",
-              fontSize: "14px",
-              minWidth: "160px",
-            }}
-          ></Column>
-          <Column
-            sortable
-            field="inv_buyerLegalName"
-            header="Tên đơn vị mua"
-            style={{
-              width: "1%",
-              fontSize: "14px",
-              minWidth: "160px",
-            }}
-          ></Column>
-          <Column
-            sortable
-            field="inv_buyerDisplayName"
-            header="Tên người mua"
-            style={{
-              width: "1%",
-              fontSize: "14px",
-              minWidth: "160px",
-            }}
-          ></Column>
-          <Column
-            sortable
-            field="inv_buyerAddressLine"
-            header="Địa chỉ"
-            style={{
-              width: "1%",
-              fontSize: "14px",
-              minWidth: "160px",
-            }}
-          ></Column>
-          <Column
-            sortable
-            field="inv_buyerTaxCode"
-            header="Mã số thuế"
-            style={{
-              width: "1%",
-              fontSize: "14px",
-              minWidth: "160px",
-            }}
-          ></Column>
-          <Column
-            sortable
-            field="inv_itemCode"
-            header="Mã hàng"
-            style={{
-              width: "1%",
-              fontSize: "14px",
-              minWidth: "160px",
-            }}
-          ></Column>
-          <Column
-            sortable
-            field="inv_itemName"
-            header="Tên hàng"
-            style={{
-              width: "1%",
-              fontSize: "14px",
-              minWidth: "160px",
-            }}
-          ></Column>
-          <Column
-            sortable
-            field="inv_unitCode"
-            header="Đơn vị tính"
-            style={{
-              width: "1%",
-              fontSize: "14px",
-              minWidth: "160px",
-            }}
-          ></Column>
-          <Column
-            sortable
-            field="inv_tuoivang"
-            header="Tuổi vàng"
-            style={{
-              width: "1%",
-              fontSize: "14px",
-              minWidth: "160px",
-            }}
-          ></Column>
+
           <Column
             sortable
             field="inv_quantity"
@@ -218,6 +127,7 @@ export default function ReactDataTable(props) {
               minWidth: "160px",
             }}
           ></Column>
+
           <Column
             sortable
             field="inv_unitPrice"
@@ -235,44 +145,11 @@ export default function ReactDataTable(props) {
                 : ""
             }
           />
-          <Column
-            sortable
-            field="inv_trongluong"
-            header="Trọng lượng"
-            style={{
-              width: "1%",
-              fontSize: "14px",
-              minWidth: "160px",
-            }}
-            body={(rowData) =>
-              rowData.inv_trongluong
-                ? rowData.inv_trongluong
-                    .toFixed(3)
-                    .replace(/\B(?=(\d{3})+(?!\d))/g, ",")
-                : ""
-            }
-          />
-          <Column
-            sortable
-            field="inv_tiencong"
-            header="Tiền công"
-            style={{
-              width: "1%",
-              fontSize: "14px",
-              minWidth: "160px",
-            }}
-            body={(rowData) =>
-              rowData.inv_tiencong
-                ? rowData.inv_tiencong
-                    .toFixed(0)
-                    .replace(/\B(?=(\d{3})+(?!\d))/g, ",")
-                : ""
-            }
-          />
+
           <Column
             sortable
             field="inv_TotalAmountWithoutVat"
-            header="Tổng tiền hàng"
+            header="Tiền trước thuế"
             style={{
               width: "1%",
               fontSize: "14px",
@@ -286,65 +163,19 @@ export default function ReactDataTable(props) {
                 : ""
             }
           />
+
           <Column
             sortable
-            field="inv_discountAmount"
-            header="Tổng tiền CK"
+            field="inv_vatAmount"
+            header="Tiền Thuế"
             style={{
               width: "1%",
               fontSize: "14px",
               minWidth: "160px",
             }}
             body={(rowData) =>
-              rowData.inv_discountAmount
-                ? rowData.inv_discountAmount
-                    .toFixed(0)
-                    .replace(/\B(?=(\d{3})+(?!\d))/g, ",")
-                : ""
-            }
-          />
-          <Column
-            sortable
-            field="inv_TotalAmountWithoutVat"
-            header="Tổng tiền trước thuế"
-            style={{
-              width: "1%",
-              fontSize: "14px",
-              minWidth: "160px",
-            }}
-            body={(rowData) =>
-              rowData.inv_TotalAmountWithoutVat
-                ? rowData.inv_TotalAmountWithoutVat
-                    .toFixed(0)
-                    .replace(/\B(?=(\d{3})+(?!\d))/g, ",")
-                : ""
-            }
-          />
-          <Column
-            sortable
-            field="inv_taxRate"
-            header="Thuế suất"
-            style={{
-              width: "1%",
-              fontSize: "14px",
-              minWidth: "160px",
-            }}
-            body={(rowData) =>
-              rowData.inv_taxRate ? `${rowData.inv_taxRate.toFixed(0)}%` : ""
-            }
-          />
-          <Column
-            sortable
-            field="inv_taxAmount"
-            header="Tổng tiền thuế"
-            style={{
-              width: "1%",
-              fontSize: "14px",
-              minWidth: "160px",
-            }}
-            body={(rowData) =>
-              rowData.inv_taxAmount
-                ? rowData.inv_taxAmount
+              rowData.inv_vatAmount
+                ? rowData.inv_vatAmount
                     .toFixed(0)
                     .replace(/\B(?=(\d{3})+(?!\d))/g, ",")
                 : ""
@@ -354,7 +185,7 @@ export default function ReactDataTable(props) {
           <Column
             sortable
             field="inv_TotalAmount"
-            header="Tổng tiền thanh toán"
+            header="Thành tiền"
             style={{
               width: "1%",
               fontSize: "14px",
@@ -375,104 +206,8 @@ export default function ReactDataTable(props) {
 
           <Column
             sortable
-            field="tchat"
-            header="Tính chất hàng hoá"
-            style={{
-              width: "1%",
-              fontSize: "14px",
-              minWidth: "160px",
-            }}
-            body={(rowData) =>
-              rowData.tchat === 1
-                ? "Hàng hoá, dịch vụ"
-                : rowData.tchat === 2
-                ? "Khuyến mãi"
-                : rowData.tchat === 3
-                ? "Chiết khấu thương mai"
-                : "Ghi chú diễn giải"
-            }
-          ></Column>
-          <Column
-            sortable
-            field="inv_currencyCode"
-            header="Mã tiền tệ"
-            style={{
-              width: "1%",
-              fontSize: "14px",
-              minWidth: "160px",
-            }}
-          ></Column>
-          <Column
-            sortable
-            field="inv_exchangeRate"
-            header="Tỷ giá"
-            style={{
-              width: "1%",
-              fontSize: "14px",
-              minWidth: "160px",
-            }}
-          ></Column>
-          <Column
-            sortable
-            field="inv_paymentMethodName"
-            header="Hình thức TT"
-            style={{
-              width: "1%",
-              fontSize: "14px",
-              minWidth: "160px",
-            }}
-          ></Column>
-          <Column
-            sortable
-            field="sobaomat"
-            header="Mã tra cứu"
-            style={{
-              width: "1%",
-              fontSize: "14px",
-              minWidth: "160px",
-            }}
-          ></Column>
-          <Column
-            sortable
-            field=""
-            header="Người lập"
-            style={{
-              width: "1%",
-              fontSize: "14px",
-              minWidth: "160px",
-            }}
-          ></Column>
-          <Column
-            sortable
-            field=""
-            header="Trạng thái"
-            style={{
-              width: "1%",
-              fontSize: "14px",
-              minWidth: "160px",
-            }}
-            body={(rowData) => {
-              let result;
-              switch (rowData.is_tthdon) {
-                case 0:
-                  result = "Gốc";
-                  break;
-                case 6:
-                  result = "Bị thay thế";
-                  break;
-                case 3:
-                  result = "Thay thế";
-                  break;
-                default:
-                  result = "Ghi chú diễn giải";
-              }
-              return result;
-            }}
-          ></Column>
-          <Column
-            sortable
-            field="tthai"
-            header="Trạng thái"
+            field="ghi_chu"
+            header="Ghi chú"
             style={{
               width: "1%",
               fontSize: "14px",
