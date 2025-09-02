@@ -88,7 +88,6 @@ const getInvoicesBySeriesList = async (
   };
 
   let allData = [];
-  let start = 0;
   const limit = 300;
 
   try {
@@ -106,9 +105,10 @@ const getInvoicesBySeriesList = async (
       }
 
       console.log(`Đang lấy dữ liệu cho ký hiệu: ${khieu}`);
-      let start = 0;
+      let start = 0; // Reset start cho mỗi ký hiệu mới
+      let hasMoreData = true;
 
-      while (true) {
+      while (hasMoreData) {
         const body = {
           tuNgay,
           denngay,
@@ -120,17 +120,29 @@ const getInvoicesBySeriesList = async (
         const response = await axios.post(url, body, { headers });
         const resData = response?.data?.data || [];
 
-        if (!Array.isArray(resData) || resData.length === 0) break;
+        if (!Array.isArray(resData) || resData.length === 0) {
+          hasMoreData = false;
+          break;
+        }
 
+        // Thêm dữ liệu vào mảng tổng
         allData.push(...resData);
+        console.log(
+          `Đã lấy ${resData.length} hóa đơn cho ký hiệu ${khieu}, tổng cộng: ${allData.length} hóa đơn`
+        );
 
-        if (resData.length < limit) break;
-        start += limit;
+        // Kiểm tra xem còn dữ liệu không
+        if (resData.length < limit) {
+          hasMoreData = false;
+        } else {
+          start += limit;
+        }
       }
     }
 
     // Sắp xếp lại toàn bộ dữ liệu theo số hóa đơn
     allData.sort((a, b) => a.inv_invoiceNumber - b.inv_invoiceNumber);
+    console.log(`Tổng số hóa đơn đã lấy: ${allData.length}`);
     return allData;
   } catch (error) {
     console.error("Error fetching invoices by series list:", error);
