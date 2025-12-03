@@ -1,5 +1,14 @@
 import axios from "axios";
 
+// Helper function để kiểm tra hóa đơn có bị thay thế không (InvoiceStatus === 6)
+const isInvoiceReplaced = (invoice) => {
+  const status =
+    invoice.trang_thai_hd !== undefined
+      ? invoice.trang_thai_hd
+      : invoice.invoiceStatus;
+  return status === 6;
+};
+
 const getInvoices = async (taxCode, tuNgay, denngay, khieu) => {
   const url = `https://${taxCode}.minvoice.app/api/InvoiceApi78/GetInvoices`;
 
@@ -28,17 +37,22 @@ const getInvoices = async (taxCode, tuNgay, denngay, khieu) => {
       if (!Array.isArray(resData) || resData.length === 0) break;
 
       // Đảm bảo ký hiệu được gán đúng cho mỗi record
-      const processedData = resData.map((item) => ({
+      const processedData = resData
+        .map((item) => ({
         ...item,
         inv_invoiceSeries: khieu,
         inv_buyerTaxCode: taxCode, // Đảm bảo mã số thuế được gán đúng
-      }));
+        }))
+        .filter((item) => !isInvoiceReplaced(item)); // Loại bỏ hóa đơn bị thay thế (InvoiceStatus === 6)
 
       allData.push(...processedData);
 
       if (resData.length < limit) break;
       start += limit;
     }
+
+    // Lọc bỏ hóa đơn bị thay thế trước khi sắp xếp (đảm bảo an toàn)
+    allData = allData.filter((item) => !isInvoiceReplaced(item));
 
     allData.sort((a, b) => a.inv_invoiceNumber - b.inv_invoiceNumber);
 
@@ -323,17 +337,23 @@ const getInvoicesBySeriesList = async (
         if (!Array.isArray(resData) || resData.length === 0) break;
 
         // Thêm ký hiệu vào mỗi record để đảm bảo mapping đúng
-        const processedData = resData.map((item) => ({
+        const processedData = resData
+          .map((item) => ({
           ...item,
           inv_invoiceSeries: khieu, // Đảm bảo ký hiệu được gán đúng
           inv_buyerTaxCode: taxCode, // Đảm bảo mã số thuế được gán đúng
-        }));
+          }))
+          .filter((item) => !isInvoiceReplaced(item)); // Loại bỏ hóa đơn bị thay thế (InvoiceStatus === 6)
 
         allData.push(...processedData);
 
         // Cập nhật dữ liệu từng phần sau mỗi batch thành công
         if (dataUpdateCallback && allData.length > 0) {
-          const sortedData = [...allData].sort(
+          // Lọc lại để đảm bảo không có hóa đơn bị thay thế
+          const filteredData = allData.filter(
+            (item) => !isInvoiceReplaced(item)
+          );
+          const sortedData = [...filteredData].sort(
             (a, b) => a.inv_invoiceNumber - b.inv_invoiceNumber
           );
           dataUpdateCallback(sortedData, taxCode);
@@ -345,13 +365,20 @@ const getInvoicesBySeriesList = async (
 
       // Cập nhật dữ liệu từng phần sau mỗi ký hiệu (nếu chưa được cập nhật trong vòng lặp)
       if (dataUpdateCallback && allData.length > 0) {
+        // Lọc lại để đảm bảo không có hóa đơn bị thay thế
+        const filteredData = allData.filter(
+          (item) => !isInvoiceReplaced(item)
+        );
         // Sắp xếp tạm thời dữ liệu hiện có
-        const sortedData = [...allData].sort(
+        const sortedData = [...filteredData].sort(
           (a, b) => a.inv_invoiceNumber - b.inv_invoiceNumber
         );
         dataUpdateCallback(sortedData, taxCode);
       }
     }
+
+    // Lọc bỏ hóa đơn bị thay thế trước khi sắp xếp
+    allData = allData.filter((item) => !isInvoiceReplaced(item));
 
     // Sắp xếp lại toàn bộ dữ liệu theo số hóa đơn
     allData.sort((a, b) => a.inv_invoiceNumber - b.inv_invoiceNumber);
@@ -381,16 +408,19 @@ const getInvoicesBySeriesList = async (
       //   `⚠️ Đã gặp lỗi nghiêm trọng nhưng vẫn trả về ${allData.length} hóa đơn đã tải được`
       // );
 
+      // Lọc bỏ hóa đơn bị thay thế trước khi trả về
+      const filteredData = allData.filter((item) => !isInvoiceReplaced(item));
+
       // Gọi callback để thông báo lỗi nghiêm trọng (để tự động xuất Excel)
       if (errorCallback && typeof errorCallback === "function") {
         try {
-          errorCallback(error, allData, taxCode);
+          errorCallback(error, filteredData, taxCode);
         } catch (callbackError) {
           // console.error("Lỗi khi gọi errorCallback:", callbackError);
         }
       }
 
-      return allData;
+      return filteredData;
     }
 
     // Nếu không có dữ liệu và có errorCallback, vẫn gọi để thông báo

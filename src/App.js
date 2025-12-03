@@ -468,10 +468,8 @@ function App() {
         // Báo cáo theo biển số xe: Có đầy đủ các cột
         const dataRow = worksheet.addRow([
           row.inv_invoiceSeries || "",
-          getTuyenBySeries(
-            row.inv_buyerTaxCode || "0317701572",
-            row.inv_invoiceSeries
-          ) || "",
+          getTuyenBySeries(row.inv_buyerTaxCode || "", row.inv_invoiceSeries) ||
+            "",
           row.inv_invoiceIssuedDate
             ? new Date(row.inv_invoiceIssuedDate).toLocaleDateString("vi-VN", {
                 day: "2-digit",
@@ -1493,11 +1491,11 @@ function App() {
           onClick={() => setVisible(true)}
         ></Button>
 
-        <Button
+        {/* <Button
           onClick={exportToExcel}
           label="Xuất excel"
           className="w-1 min-h-full border-solid border-1 border-round-sm ml-2 text-sm "
-        ></Button>
+        ></Button> */}
 
         <Button
           onClick={exportBangKeBanRa}
