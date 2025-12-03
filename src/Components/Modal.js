@@ -6,7 +6,7 @@ import { Calendar } from "primereact/calendar";
 import { Dropdown } from "primereact/dropdown";
 import { MultiSelect } from "primereact/multiselect";
 import { ProgressBar } from "primereact/progressbar";
-import { RadioButton } from "primereact/radiobutton";
+// import { RadioButton } from "primereact/radiobutton"; // Tạm thời không dùng
 import { addLocale, locale } from "primereact/api";
 import "../Api/GetInvoices";
 import getInvoices, {
@@ -28,19 +28,20 @@ export default function Modal(props) {
   const [loadingData, setLoadingData] = useState(false); // State để hiển thị loading khi lấy dữ liệu
   const [progress, setProgress] = useState(0);
   const [progressMessage, setProgressMessage] = useState("");
-  const [selectedReportType, setSelectedReportType] = useState(
-    props.reportType || "theo-bien-so-xe"
-  );
+  const [currentInvoices, setCurrentInvoices] = useState([]); // State để lưu dữ liệu đang load
+  // Tạm thời không dùng, luôn dùng "bang-ke-ban-ra"
+  // const [selectedReportType, setSelectedReportType] = useState(
+  //   props.reportType || "bang-ke-ban-ra"
+  // );
 
-  const taxCodes = [
-    { name: "3500676761", code: "3500676761" },
-    { name: "3500676761-001", code: "3500676761-001" },
-  ];
+  const taxCodes = [{ name: "0317701572", code: "0317701572" }];
 
-  const reportTypes = [
-    { name: "Theo biển số xe", value: "theo-bien-so-xe" },
-    { name: "Báo cáo tổng hợp tem, vé", value: "tong-hop-tem-ve" },
-  ];
+  // Tạm thời không dùng, đã ẩn phần chọn loại báo cáo
+  // const reportTypes = [
+  //   { name: "Theo biển số xe", value: "theo-bien-so-xe" },
+  //   { name: "Báo cáo tổng hợp tem, vé", value: "tong-hop-tem-ve" },
+  //   { name: "Bảng kê bán ra", value: "bang-ke-ban-ra" },
+  // ];
 
   const trangthaiCQT = [{ statusTax: "Gốc", code: "1" }];
 
@@ -69,7 +70,7 @@ export default function Modal(props) {
       const series = await getInvoiceSeries(taxCode);
       setSeriesOptions(series);
     } catch (error) {
-      console.error("Error loading series:", error);
+      // console.error("Error loading series:", error);
       setSeriesOptions([]);
     } finally {
       setLoadingSeries(false);
@@ -123,19 +124,56 @@ export default function Modal(props) {
   locale("vi");
 
   const footerContent = (
-    <div>
+    <div className="flex gap-2">
       <Button
         label="Huỷ bỏ"
         icon="pi pi-times"
-        onClick={() => props.setVisible(false)}
+        onClick={() => {
+          props.setVisible(false);
+          setLoadingData(false);
+        }}
         className="p-button-text"
+        disabled={loadingData}
       />
+      {loadingData && props.exportBangKeBanRa && (
+        <Button
+          label={`Kết xuất trước${
+            currentInvoices.length > 0 ||
+            (props.currentInvoices && props.currentInvoices.length > 0)
+              ? ` (${
+                  currentInvoices.length > 0
+                    ? currentInvoices.length
+                    : props.currentInvoices?.length || 0
+                } hóa đơn)`
+              : ""
+          }`}
+          icon="pi pi-download"
+          onClick={() => {
+            if (props.exportBangKeBanRa) {
+              // Ưu tiên dùng currentInvoices, nếu không có thì dùng invoices từ App.js
+              const dataToExport =
+                currentInvoices.length > 0
+                  ? currentInvoices
+                  : props.currentInvoices || [];
+
+              if (dataToExport.length > 0) {
+                // Truyền dữ liệu hiện có vào hàm xuất Excel
+                props.exportBangKeBanRa(dataToExport);
+              } else {
+                alert("Chưa có dữ liệu để xuất. Vui lòng đợi thêm vài giây...");
+              }
+            }
+          }}
+          className="p-button-success"
+        />
+      )}
       <Button
         label="Nhận"
         icon="pi pi-check"
         onClick={() => getAllInvoice()}
         autoFocus
         loading={loadingData}
+        disabled={loadingData}
       />
     </div>
   );
@@ -158,6 +196,7 @@ export default function Modal(props) {
     setLoadingData(true);
     setProgress(0);
     setProgressMessage("Đang chuẩn bị lấy dữ liệu...");
+    setCurrentInvoices([]); // Reset dữ liệu khi bắt đầu load mới
 
     // Định dạng ngày theo chuẩn API (yyyy-mm-dd)
     const formatDate = (date) => {
@@ -172,66 +211,173 @@ export default function Modal(props) {
     const denngay = formatDate(toDate);
     const taxCode = selectedTaxCode.code;
 
-    try {
-      let allInvoices = [];
+    // Giữ modal mở để hiển thị progress và cho phép xuất Excel trước
 
-      // Nếu sử dụng ký hiệu tùy chỉnh
-      if (useCustomSeries && customSeries) {
-        setProgressMessage(`Đang lấy dữ liệu cho ký hiệu: ${customSeries}`);
-        setProgress(50);
+    // Load dữ liệu ở background (không block UI)
+    (async () => {
+      try {
+        let allInvoices = [];
 
-        const invoices = await getInvoices(
-          taxCode,
-          tuNgay,
-          denngay,
-          customSeries
-        );
-        allInvoices = invoices;
+        // Nếu sử dụng ký hiệu tùy chỉnh
+        if (useCustomSeries && customSeries) {
+          setProgressMessage(`Đang lấy dữ liệu cho ký hiệu: ${customSeries}`);
+          setProgress(50);
 
-        setProgress(100);
-        setProgressMessage("Hoàn thành!");
-      } else {
-        // Nếu sử dụng danh sách ký hiệu từ API
-        const totalSeries = selectedSeries.length;
-        setProgressMessage(`Đang lấy dữ liệu cho ${totalSeries} ký hiệu...`);
+          const invoices = await getInvoices(
+            taxCode,
+            tuNgay,
+            denngay,
+            customSeries
+          );
+          allInvoices = invoices;
+          // Cập nhật dữ liệu vào state của Modal
+          setCurrentInvoices(Array.isArray(allInvoices) ? allInvoices : []);
 
-        allInvoices = await getInvoicesBySeriesList(
-          taxCode,
-          tuNgay,
-          denngay,
-          selectedSeries,
-          (currentIndex, total) => {
-            const percentage = Math.round((currentIndex / total) * 100);
-            setProgress(percentage);
+          setProgress(100);
+          setProgressMessage("Hoàn thành!");
+        } else {
+          // Nếu sử dụng danh sách ký hiệu từ API
+          const totalSeries = selectedSeries.length;
+          setProgressMessage(`Đang lấy dữ liệu cho ${totalSeries} ký hiệu...`);
+
+          allInvoices = await getInvoicesBySeriesList(
+            taxCode,
+            tuNgay,
+            denngay,
+            selectedSeries,
+            (currentIndex, total) => {
+              const percentage = Math.round((currentIndex / total) * 100);
+              setProgress(percentage);
+              setProgressMessage(
+                `Đang xử lý ký hiệu ${currentIndex}/${total}...`
+              );
+            },
+            // Callback để cập nhật dữ liệu từng phần
+            (partialData, taxCode) => {
+              const dataArray = Array.isArray(partialData) ? partialData : [];
+              // Lưu dữ liệu vào state của Modal để có thể xuất Excel
+              setCurrentInvoices(dataArray);
+              // Cập nhật vào App.js
+              props.setInvoices(dataArray, taxCode, "bang-ke-ban-ra");
+            },
+            // Callback khi gặp lỗi nghiêm trọng - tự động xuất Excel
+            (error, savedData, taxCode) => {
+              // console.error("⚠️ Lỗi nghiêm trọng trong quá trình tải:", error);
+              if (savedData && savedData.length > 0) {
+                setProgressMessage(
+                  `⚠️ Lỗi nghiêm trọng! Đang tự động xuất Excel với ${savedData.length} hóa đơn đã tải được...`
+                );
+                // Tự động xuất Excel với dữ liệu đã có
+                setTimeout(async () => {
+                  try {
+                    if (props.exportBangKeBanRa) {
+                      await props.exportBangKeBanRa(savedData);
+                      setProgressMessage(
+                        `✅ Đã tự động xuất Excel với ${savedData.length} hóa đơn. File đã được tải về.`
+                      );
+                      alert(
+                        `⚠️ Đã gặp lỗi nghiêm trọng trong quá trình tải dữ liệu!\n\n` +
+                          `✅ Đã tự động xuất Excel với ${savedData.length} hóa đơn đã tải được.\n\n` +
+                          `File Excel đã được tải về máy của bạn.\n\n` +
+                          `Lỗi: ${error.message || "Unknown error"}`
+                      );
+                    }
+                  } catch (exportError) {
+                    // console.error("Lỗi khi tự động xuất Excel:", exportError);
+                    setProgressMessage(
+                      `⚠️ Lỗi nghiêm trọng! Có ${savedData.length} hóa đơn đã tải được. Vui lòng nhấn "Kết xuất trước" để xuất Excel.`
+                    );
+                  }
+                }, 500);
+              }
+            }
+          );
+
+          setProgress(100);
+          setProgressMessage("Hoàn thành!");
+        }
+
+        // console.log("Tổng số hóa đơn nhận được:", allInvoices.length);
+        // Cập nhật dữ liệu vào state của Modal
+        const finalData = Array.isArray(allInvoices) ? allInvoices : [];
+
+        // Kiểm tra xem có dữ liệu không
+        if (finalData.length > 0) {
+          setCurrentInvoices(finalData);
+          // Luôn dùng "bang-ke-ban-ra" cho báo cáo
+          props.setInvoices(finalData, taxCode, "bang-ke-ban-ra");
+          setProgressMessage(`Hoàn thành! Đã tải ${finalData.length} hóa đơn.`);
+
+          // Đóng modal sau khi load xong
+          setTimeout(() => {
+            props.setVisible(false);
+          }, 2000); // Đợi 2 giây để người dùng thấy thông báo
+        } else {
+          setProgressMessage("Không có dữ liệu để hiển thị!");
+          alert("Không có dữ liệu để hiển thị. Vui lòng kiểm tra lại!");
+        }
+      } catch (error) {
+        // console.error("Error fetching invoices:", error);
+
+        // Kiểm tra xem có dữ liệu đã tải được không
+        const currentData = currentInvoices || [];
+        if (currentData.length > 0) {
+          // Nếu có dữ liệu đã tải, tự động xuất Excel để bảo toàn dữ liệu
+          setProgressMessage(
+            `⚠️ Đã gặp lỗi! Đang tự động xuất Excel với ${currentData.length} hóa đơn đã tải được...`
+          );
+          // console.warn(
+          //   `⚠️ Đã gặp lỗi nhưng vẫn giữ lại ${currentData.length} hóa đơn đã tải được. Tự động xuất Excel...`
+          // );
+
+          // Tự động xuất Excel với dữ liệu đã có
+          try {
+            if (props.exportBangKeBanRa) {
+              // Đợi một chút để đảm bảo state đã được cập nhật
+              setTimeout(async () => {
+                await props.exportBangKeBanRa(currentData);
+                setProgressMessage(
+                  `✅ Đã tự động xuất Excel với ${currentData.length} hóa đơn. File đã được tải về.`
+                );
+                alert(
+                  `⚠️ Đã gặp lỗi trong quá trình tải dữ liệu!\n\n` +
+                    `✅ Đã tự động xuất Excel với ${currentData.length} hóa đơn đã tải được.\n\n` +
+                    `File Excel đã được tải về máy của bạn.\n\n` +
+                    `Lỗi: ${error.message || "Unknown error"}`
+                );
+              }, 500);
+            }
+          } catch (exportError) {
+            console.error("Lỗi khi tự động xuất Excel:", exportError);
             setProgressMessage(
-              `Đang xử lý ký hiệu ${currentIndex}/${total}...`
+              `⚠️ Đã gặp lỗi! Có ${currentData.length} hóa đơn đã tải được. Vui lòng nhấn "Kết xuất trước" để xuất Excel.`
+            );
+            alert(
+              `⚠️ Đã gặp lỗi trong quá trình tải dữ liệu!\n\n` +
+                `Có ${currentData.length} hóa đơn đã tải được.\n\n` +
+                `Vui lòng nhấn nút "Kết xuất trước" để xuất Excel ngay.\n\n` +
+                `Lỗi: ${error.message || "Unknown error"}`
             );
           }
-        );
-
-        setProgress(100);
-        setProgressMessage("Hoàn thành!");
+          // Không đóng modal, để người dùng có thể thấy thông báo
+        } else {
+          // Nếu không có dữ liệu, thông báo lỗi
+          setProgressMessage("Có lỗi xảy ra khi lấy dữ liệu!");
+          alert(
+            "Có lỗi xảy ra khi lấy dữ liệu. Vui lòng thử lại!\n\n" +
+              "Lỗi: " +
+              (error.message || "Unknown error")
+          );
+        }
+      } finally {
+        setLoadingData(false);
+        // Reset progress sau 5 giây (tăng thời gian để người dùng đọc thông báo)
+        setTimeout(() => {
+          setProgress(0);
+          setProgressMessage("");
+        }, 5000);
       }
-
-      console.log("Tổng số hóa đơn nhận được:", allInvoices.length);
-      props.setInvoices(
-        Array.isArray(allInvoices) ? allInvoices : [],
-        taxCode,
-        selectedReportType
-      );
-      props.setVisible(false);
-    } catch (error) {
-      console.error("Error fetching invoices:", error);
-      setProgressMessage("Có lỗi xảy ra khi lấy dữ liệu!");
-      alert("Có lỗi xảy ra khi lấy dữ liệu. Vui lòng thử lại!");
-    } finally {
-      setLoadingData(false);
-      // Reset progress sau 2 giây
-      setTimeout(() => {
-        setProgress(0);
-        setProgressMessage("");
-      }, 2000);
-    }
+    })();
   };
 
   return (
@@ -249,9 +395,11 @@ export default function Modal(props) {
         footer={footerContent}
         draggable={false}
         resizable={false}
+        modal={true}
+        dismissableMask={false}
       >
-        {/* Chọn loại báo cáo - Đặt trên cùng */}
-        <div className="card flex-row pb-3">
+        {/* Chọn loại báo cáo - Tạm thời ẩn, chỉ dùng Bảng kê bán ra */}
+        {/* <div className="card flex-row pb-3">
           <div className="flex flex-column w-full mt-10">
             <label htmlFor="reportType" className="mb-3">
               Chọn loại báo cáo:
@@ -278,7 +426,7 @@ export default function Modal(props) {
               ))}
             </div>
           </div>
-        </div>
+        </div> */}
 
         {/* Mã số thuế */}
         <div className="card flex-row pb-3">
@@ -330,7 +478,7 @@ export default function Modal(props) {
           <label htmlFor="username">Ký hiệu</label>
           <div style={{ width: "326px" }}>
             <div className="flex flex-row align-items-center mb-2">
-              <input
+              {/* <input
                 type="radio"
                 id="dropdown"
                 name="seriesType"
@@ -349,7 +497,7 @@ export default function Modal(props) {
                 onChange={() => setUseCustomSeries(true)}
                 style={{ marginRight: "8px" }}
               />
-              <label htmlFor="custom">Nhập tùy chỉnh</label>
+              <label htmlFor="custom">Nhập tùy chỉnh</label> */}
             </div>
 
             {!useCustomSeries ? (
