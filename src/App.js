@@ -733,69 +733,194 @@ function App() {
         };
       });
     } else {
-      // Thêm dữ liệu hóa đơn
+      // Group theo ký hiệu, sau đó trong mỗi ký hiệu group theo tên nhà hàng
+      const groupedBySeries = groupInvoices.reduce((acc, invoice) => {
+        const series = invoice.inv_invoiceSeries || "";
+        if (!acc[series]) {
+          acc[series] = {};
+        }
+        const tencuahang = invoice.tencuahang || "";
+        if (!acc[series][tencuahang]) {
+          acc[series][tencuahang] = [];
+        }
+        acc[series][tencuahang].push(invoice);
+        return acc;
+      }, {});
+
       let rowIndex = 0;
-      groupInvoices.forEach((invoice) => {
-        rowIndex++;
-        rowsAdded++;
-        const dataRow = ws.addRow([
-          rowIndex,
-          invoice.inv_invoiceSeries || "",
-          invoice.tencuahang || "",
-          formatDate(invoice.inv_invoiceIssuedDate),
-          invoice.inv_invoiceNumber || "",
-          invoice.inv_buyerDisplayName ||
-            invoice.inv_buyerLegalName ||
-            invoice.ten ||
-            "",
-          invoice.inv_buyerTaxCode || invoice.mst || "",
-          invoice.inv_TotalAmountWithoutVat || 0,
-          invoice.inv_vatAmount || 0,
-          getInvoiceStatus(invoice),
-        ]);
+      let groupTotalBeforeTax = 0;
+      let groupTotalTax = 0;
 
-        // Format số cho các cột tiền (cột 8 và 9)
-        dataRow.getCell(8).numFmt = "#,##0";
-        dataRow.getCell(9).numFmt = "#,##0";
+      // Sắp xếp các ký hiệu
+      const sortedSeries = Object.keys(groupedBySeries).sort((a, b) =>
+        a.localeCompare(b, "vi", { numeric: true, sensitivity: "base" })
+      );
 
-        // Tối ưu: Chỉ style khi không chia sheet hoặc số dòng ít
-        if (!isSplitMode || ws.rowCount < 50000) {
-          dataRow.eachCell((cell) => {
-            cell.border = {
-              top: { style: "thin", color: { argb: "FF000000" } },
-              left: { style: "thin", color: { argb: "FF000000" } },
-              bottom: { style: "thin", color: { argb: "FF000000" } },
-              right: { style: "thin", color: { argb: "FF000000" } },
+      // Duyệt qua từng ký hiệu
+      sortedSeries.forEach((series) => {
+        const shopsInSeries = groupedBySeries[series];
+
+        // Sắp xếp các tên nhà hàng trong ký hiệu
+        const sortedShops = Object.keys(shopsInSeries).sort((a, b) =>
+          a.localeCompare(b, "vi", { numeric: true, sensitivity: "base" })
+        );
+
+        // Duyệt qua từng nhà hàng trong ký hiệu
+        sortedShops.forEach((tencuahang) => {
+          const shopInvoices = shopsInSeries[tencuahang];
+
+          // Thêm sub-header cho tên nhà hàng (nếu có nhiều hơn 1 nhà hàng trong ký hiệu)
+          if (sortedShops.length > 1) {
+            const shopHeaderRow = ws.addRow([
+              "",
+              series,
+              tencuahang,
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+            ]);
+            rowsAdded++;
+
+            // Merge từ cột 2 đến cột 3 cho sub-header nhà hàng
+            ws.mergeCells(shopHeaderRow.number, 2, shopHeaderRow.number, 3);
+            shopHeaderRow.getCell(2).font = { bold: true, size: 11 };
+            shopHeaderRow.getCell(2).fill = {
+              type: "pattern",
+              pattern: "solid",
+              fgColor: { argb: "FFF2F2F2" },
             };
-            cell.alignment = { vertical: "middle" };
+            shopHeaderRow.getCell(2).alignment = {
+              horizontal: "left",
+              vertical: "middle",
+            };
+            shopHeaderRow.eachCell((cell) => {
+              cell.border = {
+                top: { style: "thin", color: { argb: "FF000000" } },
+                left: { style: "thin", color: { argb: "FF000000" } },
+                bottom: { style: "thin", color: { argb: "FF000000" } },
+                right: { style: "thin", color: { argb: "FF000000" } },
+              };
+            });
+          }
+
+          // Thêm các hóa đơn của nhà hàng
+          let shopTotalBeforeTax = 0;
+          let shopTotalTax = 0;
+
+          shopInvoices.forEach((invoice) => {
+            rowIndex++;
+            rowsAdded++;
+            shopTotalBeforeTax +=
+              Number(invoice.inv_TotalAmountWithoutVat) || 0;
+            shopTotalTax += Number(invoice.inv_vatAmount) || 0;
+
+            const dataRow = ws.addRow([
+              rowIndex,
+              invoice.inv_invoiceSeries || "",
+              invoice.tencuahang || "",
+              formatDate(invoice.inv_invoiceIssuedDate),
+              invoice.inv_invoiceNumber || "",
+              invoice.inv_buyerDisplayName ||
+                invoice.inv_buyerLegalName ||
+                invoice.ten ||
+                "",
+              invoice.inv_buyerTaxCode || "",
+              invoice.inv_TotalAmountWithoutVat || 0,
+              invoice.inv_vatAmount || 0,
+              getInvoiceStatus(invoice),
+            ]);
+
+            // Format số cho các cột tiền (cột 8 và 9)
+            dataRow.getCell(8).numFmt = "#,##0";
+            dataRow.getCell(9).numFmt = "#,##0";
+
+            // Tối ưu: Chỉ style khi không chia sheet hoặc số dòng ít
+            if (!isSplitMode || ws.rowCount < 50000) {
+              dataRow.eachCell((cell) => {
+                cell.border = {
+                  top: { style: "thin", color: { argb: "FF000000" } },
+                  left: { style: "thin", color: { argb: "FF000000" } },
+                  bottom: { style: "thin", color: { argb: "FF000000" } },
+                  right: { style: "thin", color: { argb: "FF000000" } },
+                };
+                cell.alignment = { vertical: "middle" };
+              });
+
+              dataRow.getCell(1).alignment = {
+                horizontal: "center",
+                vertical: "middle",
+              };
+              dataRow.getCell(8).alignment = {
+                horizontal: "right",
+                vertical: "middle",
+              };
+              dataRow.getCell(9).alignment = {
+                horizontal: "right",
+                vertical: "middle",
+              };
+            }
           });
 
-          dataRow.getCell(1).alignment = {
-            horizontal: "center",
-            vertical: "middle",
-          };
-          dataRow.getCell(8).alignment = {
-            horizontal: "right",
-            vertical: "middle",
-          };
-          dataRow.getCell(9).alignment = {
-            horizontal: "right",
-            vertical: "middle",
-          };
-        }
+          // Thêm tổng cộng cho nhà hàng (chỉ khi có nhiều hơn 1 nhà hàng trong ký hiệu)
+          if (sortedShops.length > 1) {
+            rowsAdded++;
+            const shopTotalRow = ws.addRow([
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              `Tổng ${tencuahang}`,
+              shopTotalBeforeTax,
+              shopTotalTax,
+              "",
+            ]);
+
+            // Format số cho dòng tổng nhà hàng
+            shopTotalRow.getCell(8).numFmt = "#,##0";
+            shopTotalRow.getCell(9).numFmt = "#,##0";
+
+            shopTotalRow.font = { bold: true };
+            shopTotalRow.fill = {
+              type: "pattern",
+              pattern: "solid",
+              fgColor: { argb: "FFF2F2F2" },
+            };
+            shopTotalRow.getCell(7).alignment = {
+              horizontal: "right",
+              vertical: "middle",
+            };
+            shopTotalRow.getCell(8).alignment = {
+              horizontal: "right",
+              vertical: "middle",
+            };
+            shopTotalRow.getCell(9).alignment = {
+              horizontal: "right",
+              vertical: "middle",
+            };
+
+            shopTotalRow.eachCell((cell) => {
+              cell.border = {
+                top: { style: "thin", color: { argb: "FF000000" } },
+                left: { style: "thin", color: { argb: "FF000000" } },
+                bottom: { style: "thin", color: { argb: "FF000000" } },
+                right: { style: "thin", color: { argb: "FF000000" } },
+              };
+            });
+          }
+
+          // Cộng vào tổng nhóm
+          groupTotalBeforeTax += shopTotalBeforeTax;
+          groupTotalTax += shopTotalTax;
+        });
       });
 
-      // Tính tổng cho nhóm
-      const groupTotalBeforeTax = groupInvoices.reduce(
-        (sum, inv) => sum + (Number(inv.inv_TotalAmountWithoutVat) || 0),
-        0
-      );
-      const groupTotalTax = groupInvoices.reduce(
-        (sum, inv) => sum + (Number(inv.inv_vatAmount) || 0),
-        0
-      );
-
-      // Thêm dòng tổng cộng cho nhóm
+      // Thêm dòng tổng cộng cho nhóm thuế suất
       rowsAdded++;
       const groupTotalRow = ws.addRow([
         "",
