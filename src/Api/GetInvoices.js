@@ -39,9 +39,9 @@ const getInvoices = async (taxCode, tuNgay, denngay, khieu) => {
       // Đảm bảo ký hiệu được gán đúng cho mỗi record
       const processedData = resData
         .map((item) => ({
-        ...item,
-        inv_invoiceSeries: khieu,
-        inv_buyerTaxCode: taxCode, // Đảm bảo mã số thuế được gán đúng
+          ...item,
+          inv_invoiceSeries: khieu,
+          inv_sellerTaxCode: taxCode, // Lưu MST người bán (seller) - đây là MST được nhập vào
         }))
         .filter((item) => !isInvoiceReplaced(item)); // Loại bỏ hóa đơn bị thay thế (InvoiceStatus === 6)
 
@@ -95,101 +95,7 @@ const getInvoiceSeries = async (taxCode) => {
     // console.log("API Response - Danh sách ký hiệu:", data);
 
     // Danh sách ký hiệu cần filter (loại bỏ)
-    const excludedSeries = [
-      "1C25MEA",
-      "1C25MCS",
-      "1C25MEK",
-      "1C25MEI",
-      "1C25MDV",
-      "1C25MCY",
-      "1C25MEE",
-      "1C25MDG",
-      "1C25MBY",
-      "1C25MDA",
-      "1C25MDC",
-      "1C25MDE",
-      "1C25MDH",
-      "1C25MDL",
-      "1C25MDO",
-      "1C25MDU",
-      "1C25MAC",
-      "1C25MAM",
-      "1C25MAP",
-      "1C25MAQ",
-      "1C25MAT",
-      "1C25MDN",
-      "1C25MAG",
-      "1C25MAI",
-      "1C25MAL",
-      "1C25MAO",
-      "1C25MAR",
-      "1C25MDP",
-      "1C25MDQ",
-      "1C25MDY",
-      "1C25MEB",
-      "1C25MEV",
-      "1C25MAD",
-      "1C25MAE",
-      "1C25MAH",
-      "1C25MAK",
-      "1C25MAS",
-      "1C25MAU",
-      "1C25MBA",
-      "1C25MBB",
-      "1C25MBC",
-      "1C25MBH",
-      "1C25MBI",
-      "1C25MBO",
-      "1C25MBR",
-      "1C25MBS",
-      "1C25MBU",
-      "1C25MBV",
-      "1C25MCI",
-      "1C25MEH",
-      "1C25MEM",
-      "1C25MEO",
-      "1C25MER",
-      "1C25MES",
-      "1C25MET",
-      "1C25MEY",
-      "1C25MGB",
-      "1C25MGG",
-      "1C25MGM",
-      "1C25MGN",
-      "1C25MGT",
-      "1C25MGX",
-      "1C25MHE",
-      "1C25TVP",
-      "1C25TVQ",
-      "1C25TVR",
-      "1C25TVS",
-      "1C25TVT",
-      "1C25TVU",
-      "1C25TVV",
-      "1C25TVW",
-      "1C25MAX",
-      "1C25MAY",
-      "1C25MBK",
-      "1C25MBL",
-      "1C25MBN",
-      "1C25MBX",
-      "1C25MCB",
-      "1C25MCC",
-      "1C25MCG",
-      "1C25MCK",
-      "1C25MCL",
-      "1C25MCM",
-      "1C25MCQ",
-      "1C25MDS",
-      "1C25MEN",
-      "1C25MEQ",
-      "1C25MEU",
-      "1C25MEX",
-      "1C25MGA",
-      "1C25MGC",
-      "1C25MGR",
-      "1C25MGU",
-    ];
+    const excludedSeries = [];
 
     // Chuyển đổi dữ liệu để phù hợp với MultiSelect
     // Hiển thị tất cả ký hiệu có giá trị, nhưng loại bỏ các ký hiệu trong excludedSeries
@@ -339,9 +245,9 @@ const getInvoicesBySeriesList = async (
         // Thêm ký hiệu vào mỗi record để đảm bảo mapping đúng
         const processedData = resData
           .map((item) => ({
-          ...item,
-          inv_invoiceSeries: khieu, // Đảm bảo ký hiệu được gán đúng
-          inv_buyerTaxCode: taxCode, // Đảm bảo mã số thuế được gán đúng
+            ...item,
+            inv_invoiceSeries: khieu, // Đảm bảo ký hiệu được gán đúng
+            inv_sellerTaxCode: taxCode, // Lưu MST người bán (seller) - đây là MST được nhập vào
           }))
           .filter((item) => !isInvoiceReplaced(item)); // Loại bỏ hóa đơn bị thay thế (InvoiceStatus === 6)
 
@@ -366,9 +272,7 @@ const getInvoicesBySeriesList = async (
       // Cập nhật dữ liệu từng phần sau mỗi ký hiệu (nếu chưa được cập nhật trong vòng lặp)
       if (dataUpdateCallback && allData.length > 0) {
         // Lọc lại để đảm bảo không có hóa đơn bị thay thế
-        const filteredData = allData.filter(
-          (item) => !isInvoiceReplaced(item)
-        );
+        const filteredData = allData.filter((item) => !isInvoiceReplaced(item));
         // Sắp xếp tạm thời dữ liệu hiện có
         const sortedData = [...filteredData].sort(
           (a, b) => a.inv_invoiceNumber - b.inv_invoiceNumber

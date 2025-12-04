@@ -468,8 +468,10 @@ function App() {
         // Báo cáo theo biển số xe: Có đầy đủ các cột
         const dataRow = worksheet.addRow([
           row.inv_invoiceSeries || "",
-          getTuyenBySeries(row.inv_buyerTaxCode || "", row.inv_invoiceSeries) ||
-            "",
+          getTuyenBySeries(
+            row.inv_sellerTaxCode || "",
+            row.inv_invoiceSeries
+          ) || "",
           row.inv_invoiceIssuedDate
             ? new Date(row.inv_invoiceIssuedDate).toLocaleDateString("vi-VN", {
                 day: "2-digit",
@@ -824,10 +826,7 @@ function App() {
               invoice.tencuahang || "",
               formatDate(invoice.inv_invoiceIssuedDate),
               invoice.inv_invoiceNumber || "",
-              invoice.inv_buyerDisplayName ||
-                invoice.inv_buyerLegalName ||
-                invoice.ten ||
-                "",
+              invoice.inv_buyerDisplayName || invoice.inv_buyerLegalName || "",
               invoice.inv_buyerTaxCode || "",
               invoice.inv_TotalAmountWithoutVat || 0,
               invoice.inv_vatAmount || 0,
@@ -1239,6 +1238,269 @@ function App() {
     // console.log(`Đã xuất tổng cộng ${currentFileIndex} file Excel`);
   };
 
+  // Hàm xuất bảng kê tổng hợp
+  const exportBangKeTongHop = async () => {
+    if (reportType !== "bang-ke-ban-ra") {
+      alert("Vui lòng chọn bảng kê bán ra và lọc dữ liệu trước khi xuất Excel");
+      return;
+    }
+
+    // Sử dụng dữ liệu từ invoices state (bảng kê chi tiết)
+    const invoicesToUse = Array.isArray(invoices) ? invoices : [];
+
+    // Kiểm tra xem có dữ liệu không
+    if (!invoicesToUse || invoicesToUse.length === 0) {
+      alert(
+        "Chưa có dữ liệu để xuất. Vui lòng đợi thêm vài giây hoặc lọc dữ liệu trước."
+      );
+      return;
+    }
+
+    // Flatten invoices để lấy chi tiết
+    const flattenedInvoices = invoicesToUse.flatMap((invoice) => {
+      if (invoice && invoice.details && Array.isArray(invoice.details)) {
+        return invoice.details.map((detail) => ({
+          ...invoice,
+          ...detail,
+        }));
+      }
+      return [invoice];
+    });
+
+    // Helper function để tính thuế suất từ ma_thue
+    const getTaxRateFromMaThue = (maThue) => {
+      if (maThue === "8") return "8%";
+      if (maThue === "10") return "10%";
+      if (maThue === "5") return "5%";
+      if (maThue === "0") return "0%";
+      if (!maThue || maThue === null || maThue === "") {
+        // Tính từ tỷ lệ thuế
+        return "Không chịu thuế";
+      }
+      return `${maThue}%`;
+    };
+
+    // Helper function để tính thuế suất từ invoice (nếu không có ma_thue trong detail)
+    const calculateTaxRateFromInvoice = (invoice) => {
+      if (invoice.inv_TotalAmountWithoutVat > 0) {
+        const calculatedRate =
+          (invoice.inv_vatAmount / invoice.inv_TotalAmountWithoutVat) * 100;
+        if (Math.abs(calculatedRate) < 0.1) return "0%";
+        if (Math.abs(calculatedRate - 5) < 0.1) return "5%";
+        if (Math.abs(calculatedRate - 8) < 0.1) return "8%";
+        if (Math.abs(calculatedRate - 10) < 0.1) return "10%";
+        if (calculatedRate > 0) return `${calculatedRate.toFixed(1)}%`;
+        return "Không chịu thuế";
+      }
+      return "Không chịu thuế";
+    };
+
+    // Group theo tên nhà hàng và % thuế suất
+    const groupedData = flattenedInvoices.reduce((groups, item) => {
+      const tencuahang = item.tencuahang || "Không xác định";
+      const maThue = item.ma_thue;
+
+      // Tính thuế suất từ ma_thue trong detail
+      let taxRate = "Không chịu thuế";
+      if (maThue) {
+        taxRate = getTaxRateFromMaThue(maThue);
+      } else {
+        // Nếu không có ma_thue, tính từ tỷ lệ thuế của detail
+        if (item.inv_TotalAmountWithoutVat > 0) {
+          const calculatedRate =
+            (item.inv_vatAmount / item.inv_TotalAmountWithoutVat) * 100;
+          if (Math.abs(calculatedRate) < 0.1) taxRate = "0%";
+          else if (Math.abs(calculatedRate - 5) < 0.1) taxRate = "5%";
+          else if (Math.abs(calculatedRate - 8) < 0.1) taxRate = "8%";
+          else if (Math.abs(calculatedRate - 10) < 0.1) taxRate = "10%";
+          else if (calculatedRate > 0)
+            taxRate = `${calculatedRate.toFixed(1)}%`;
+          else taxRate = "Không chịu thuế";
+        }
+      }
+
+      const key = `${tencuahang}_${taxRate}`;
+
+      if (!groups[key]) {
+        groups[key] = {
+          tencuahang,
+          taxRate,
+          kyhieu: item.inv_invoiceSeries || "",
+          kyhieuSet: new Set([item.inv_invoiceSeries || ""]),
+          totalBeforeTax: 0,
+          totalTax: 0,
+        };
+      } else {
+        // Thêm ký hiệu vào set nếu chưa có
+        if (item.inv_invoiceSeries) {
+          groups[key].kyhieuSet.add(item.inv_invoiceSeries);
+        }
+      }
+
+      // Sum tiền trước thuế và tiền thuế từ detail
+      groups[key].totalBeforeTax += Number(item.inv_TotalAmountWithoutVat) || 0;
+      groups[key].totalTax += Number(item.inv_vatAmount) || 0;
+
+      return groups;
+    }, {});
+
+    // Chuyển đổi object thành array và sắp xếp
+    const summaryData = Object.values(groupedData)
+      .map((item) => {
+        // Xử lý ký hiệu: nếu có nhiều ký hiệu khác nhau, để trống
+        const kyhieuArray = Array.from(item.kyhieuSet).filter((k) => k);
+        const kyhieu =
+          kyhieuArray.length === 1
+            ? kyhieuArray[0]
+            : kyhieuArray.length > 1
+            ? "" // Để trống nếu có nhiều ký hiệu
+            : "";
+        return {
+          ...item,
+          kyhieu,
+        };
+      })
+      .sort((a, b) => {
+        // Sắp xếp theo tên nhà hàng, sau đó theo thuế suất
+        if (a.tencuahang !== b.tencuahang) {
+          return a.tencuahang.localeCompare(b.tencuahang, "vi", {
+            numeric: true,
+            sensitivity: "base",
+          });
+        }
+        return a.taxRate.localeCompare(b.taxRate, "vi", {
+          numeric: true,
+          sensitivity: "base",
+        });
+      });
+
+    // Tạo Excel
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("bang-ke-tong-hop");
+
+    // Thêm header
+    const headers = [
+      "Ký hiệu",
+      "Tên cửa hàng",
+      "% Thuế suất",
+      "Tổng tiền trước thuế",
+      "Tổng tiền thuế",
+    ];
+    worksheet.addRow(headers);
+
+    // Áp dụng style cho tiêu đề
+    const headerRow = worksheet.getRow(1);
+    headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    headerRow.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FF0070C0" },
+    };
+    headerRow.alignment = { horizontal: "center", vertical: "middle" };
+
+    // Thêm viền cho tiêu đề
+    headerRow.eachCell((cell) => {
+      cell.border = {
+        top: { style: "thin", color: { argb: "FF000000" } },
+        left: { style: "thin", color: { argb: "FF000000" } },
+        bottom: { style: "thin", color: { argb: "FF000000" } },
+        right: { style: "thin", color: { argb: "FF000000" } },
+      };
+    });
+
+    // Thêm dữ liệu
+    summaryData.forEach((row) => {
+      const dataRow = worksheet.addRow([
+        row.kyhieu,
+        row.tencuahang,
+        row.taxRate,
+        row.totalBeforeTax,
+        row.totalTax,
+      ]);
+
+      // Format số cho các cột tiền
+      dataRow.getCell(4).numFmt = "#,##0";
+      dataRow.getCell(5).numFmt = "#,##0";
+
+      // Thêm viền cho từng ô dữ liệu
+      dataRow.eachCell((cell) => {
+        cell.border = {
+          top: { style: "thin", color: { argb: "FF000000" } },
+          left: { style: "thin", color: { argb: "FF000000" } },
+          bottom: { style: "thin", color: { argb: "FF000000" } },
+          right: { style: "thin", color: { argb: "FF000000" } },
+        };
+        cell.alignment = { vertical: "middle" };
+      });
+
+      dataRow.getCell(4).alignment = {
+        horizontal: "right",
+        vertical: "middle",
+      };
+      dataRow.getCell(5).alignment = {
+        horizontal: "right",
+        vertical: "middle",
+      };
+    });
+
+    // Tính tổng cộng
+    const grandTotalBeforeTax = summaryData.reduce(
+      (sum, row) => sum + row.totalBeforeTax,
+      0
+    );
+    const grandTotalTax = summaryData.reduce(
+      (sum, row) => sum + row.totalTax,
+      0
+    );
+
+    // Thêm dòng tổng cộng
+    const totalRow = worksheet.addRow([
+      "",
+      "Tổng cộng",
+      "",
+      grandTotalBeforeTax,
+      grandTotalTax,
+    ]);
+
+    // Format số cho dòng tổng cộng
+    totalRow.getCell(4).numFmt = "#,##0";
+    totalRow.getCell(5).numFmt = "#,##0";
+
+    totalRow.font = { bold: true };
+    totalRow.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FFCCCCCC" },
+    };
+    totalRow.getCell(2).alignment = { horizontal: "right", vertical: "middle" };
+    totalRow.getCell(4).alignment = { horizontal: "right", vertical: "middle" };
+    totalRow.getCell(5).alignment = { horizontal: "right", vertical: "middle" };
+
+    // Thêm viền cho dòng tổng cộng
+    totalRow.eachCell((cell) => {
+      cell.border = {
+        top: { style: "thin", color: { argb: "FF000000" } },
+        left: { style: "thin", color: { argb: "FF000000" } },
+        bottom: { style: "thin", color: { argb: "FF000000" } },
+        right: { style: "thin", color: { argb: "FF000000" } },
+      };
+    });
+
+    // Điều chỉnh độ rộng cột
+    worksheet.columns = [
+      { width: 15 }, // Ký hiệu
+      { width: 30 }, // Tên cửa hàng
+      { width: 15 }, // % Thuế suất
+      { width: 20 }, // Tổng tiền trước thuế
+      { width: 18 }, // Tổng tiền thuế
+    ];
+
+    // Lưu file
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/octet-stream" });
+    saveAs(blob, "bang-ke-tong-hop.xlsx");
+  };
+
   const exportBangKeBanRa = async (customInvoices = null) => {
     if (reportType !== "bang-ke-ban-ra") {
       alert("Vui lòng chọn bảng kê bán ra và lọc dữ liệu trước khi xuất Excel");
@@ -1548,11 +1810,8 @@ function App() {
           }","${formatDate(invoice.inv_invoiceIssuedDate)}","${
             invoice.inv_invoiceNumber || ""
           }","${
-            invoice.inv_buyerDisplayName ||
-            invoice.inv_buyerLegalName ||
-            invoice.ten ||
-            ""
-          }","${invoice.inv_buyerTaxCode || invoice.mst || ""}","${formatNumber(
+            invoice.inv_buyerDisplayName || invoice.inv_buyerLegalName || ""
+          }","${invoice.inv_sellerTaxCode || ""}","${formatNumber(
             invoice.inv_TotalAmountWithoutVat
           )}","${formatNumber(invoice.inv_vatAmount)}","${getInvoiceStatus(
             invoice
@@ -1624,7 +1883,13 @@ function App() {
 
         <Button
           onClick={exportBangKeBanRa}
-          label="Xuất bảng kê bán ra"
+          label="Xuất bảng kê chi tiết"
+          className="w-[1.5] min-h-full border-solid border-1 border-round-sm ml-2 text-sm "
+        ></Button>
+
+        <Button
+          onClick={exportBangKeTongHop}
+          label="Xuất bảng kê tổng hợp"
           className="w-[1.5] min-h-full border-solid border-1 border-round-sm ml-2 text-sm "
         ></Button>
       </div>

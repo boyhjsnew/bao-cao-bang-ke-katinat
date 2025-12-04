@@ -392,7 +392,6 @@ export default function ReactDataTable(props) {
                               >
                                 {invoice.inv_buyerDisplayName ||
                                   invoice.inv_buyerLegalName ||
-                                  invoice.ten ||
                                   ""}
                               </td>
                               <td
@@ -401,7 +400,7 @@ export default function ReactDataTable(props) {
                                   border: "1px solid #000",
                                 }}
                               >
-                                {invoice.inv_buyerTaxCode || invoice.mst || ""}
+                                {invoice.inv_buyerTaxCode || ""}
                               </td>
                               <td
                                 style={{
@@ -681,7 +680,7 @@ export default function ReactDataTable(props) {
 
           <Column
             sortable
-            field="inv_buyerTaxCode"
+            field="inv_sellerTaxCode"
             header="Mã số thuế"
             style={{
               width: "1%",
@@ -802,7 +801,7 @@ export default function ReactDataTable(props) {
               minWidth: "160px",
             }}
             body={(rowData) => {
-                  const taxCode = rowData.inv_buyerTaxCode || "0317701572";
+                  const taxCode = rowData.inv_sellerTaxCode || "0317701572";
               const series = rowData.inv_invoiceSeries;
 
               return props.getTuyenBySeries
