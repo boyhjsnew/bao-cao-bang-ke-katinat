@@ -1860,39 +1860,93 @@ function App() {
 
   return (
     <div className="container">
-      {/* item button menu */}
+      {/* item button menu với logo */}
       <div
         style={{
           backgroundColor: "#F8F9FA",
           borderWidth: "0.1px",
           borderColor: "#DEE2E6",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "8px 8px",
         }}
-        className="flex col h-3rem  border-solid mr-3 ml-3 mt-3 border-round-sm"
+        className="border-solid mr-3 ml-3 mt-3 border-round-sm"
       >
-        <Button
-          label="Lọc dữ liệu"
-          className="w-1 min-h-full border-solid border-1 border-round-sm text-sm "
-          onClick={() => setVisible(true)}
-        ></Button>
+        {/* Các nút chức năng */}
+        <div style={{ display: "flex", alignItems: "center" }}>
+          <Button
+            label="Lọc dữ liệu"
+            className="min-h-full border-solid border-1 border-round-sm text-sm "
+            onClick={() => setVisible(true)}
+          ></Button>
 
-        {/* <Button
+          {/* <Button
           onClick={exportToExcel}
           label="Xuất excel"
           className="w-1 min-h-full border-solid border-1 border-round-sm ml-2 text-sm "
         ></Button> */}
 
-        <Button
-          onClick={exportBangKeBanRa}
-          label="Xuất bảng kê chi tiết"
-          className="w-[1.5] min-h-full border-solid border-1 border-round-sm ml-2 text-sm "
-        ></Button>
+          <Button
+            onClick={exportBangKeBanRa}
+            label="Xuất bảng kê chi tiết"
+            className="min-h-full border-solid border-1 border-round-sm ml-2 text-sm "
+          ></Button>
 
-        <Button
-          onClick={exportBangKeTongHop}
-          label="Xuất bảng kê tổng hợp"
-          className="w-[1.5] min-h-full border-solid border-1 border-round-sm ml-2 text-sm "
-        ></Button>
+          <Button
+            onClick={exportBangKeTongHop}
+            label="Xuất bảng kê tổng hợp"
+            className="min-h-full border-solid border-1 border-round-sm ml-2 text-sm "
+          ></Button>
+        </div>
+
+        {/* Logo bên góc phải */}
+        <img
+          src="/logo-minvoice.png"
+          alt="M-invoice Logo"
+          style={{
+            height: "50px",
+
+            objectFit: "contain",
+          }}
+        />
       </div>
+
+      {/* Ghi chú nguồn dữ liệu - highlight màu mè */}
+      <div
+        style={{
+          backgroundColor: "#E3F2FD",
+          borderLeft: "4px solid #2196F3",
+          padding: "12px 20px",
+          margin: "10px 12px",
+          borderRadius: "4px",
+          boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+        }}
+      >
+        <div
+          style={{
+            fontSize: "14px",
+            color: "#1565C0",
+            fontWeight: "500",
+            display: "flex",
+            alignItems: "center",
+          }}
+        >
+          <span
+            style={{
+              fontSize: "18px",
+              marginRight: "10px",
+            }}
+          >
+            ℹ️
+          </span>
+          <span>
+            Số liệu từ web tool được lấy từ dữ liệu bằng hình thức kết nối API
+            với hóa đơn điện tử M-invoice
+          </span>
+        </div>
+      </div>
+
       {/* table  */}
       <ReactDataTable
         invoices={reportType === "bang-ke-ban-ra" ? invoices : mergedInvoices}
