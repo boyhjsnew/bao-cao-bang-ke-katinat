@@ -264,12 +264,76 @@ export default function Modal(props) {
             tuNgay,
             denngay,
             selectedSeries,
-            (currentIndex, total) => {
-              const percentage = Math.round((currentIndex / total) * 100);
+            (
+              totalInvoicesFetched,
+              grandTotalInvoices,
+              currentSeriesIndex,
+              totalSeries,
+              currentSeriesCode,
+              invoicesForCurrentSeries,
+              seriesTotal
+            ) => {
+              // Tính phần trăm dựa trên số hóa đơn đã lấy / tổng số hóa đơn từ API
+              let percentage = 0;
+
+              // Nếu đã hoàn thành (không có ký hiệu đang xử lý hoặc đã lấy đủ)
+              if (
+                !currentSeriesCode ||
+                totalInvoicesFetched >= grandTotalInvoices
+              ) {
+                percentage = 100;
+              } else if (grandTotalInvoices > 0) {
+                percentage = Math.round(
+                  (totalInvoicesFetched / grandTotalInvoices) * 100
+                );
+                // Giới hạn tối đa 99% cho đến khi hoàn thành
+                if (percentage > 99) {
+                  percentage = 99;
+                }
+              } else {
+                // Nếu chưa có total, tính dựa trên số ký hiệu đã xử lý
+                percentage = Math.round(
+                  (currentSeriesIndex / totalSeries) * 50
+                ); // Tạm thời 50% max
+              }
               setProgress(percentage);
-              setProgressMessage(
-                `Đang xử lý ký hiệu ${currentIndex}/${total}...`
-              );
+
+              // Hiển thị thông tin chi tiết
+              if (
+                !currentSeriesCode ||
+                totalInvoicesFetched >= grandTotalInvoices
+              ) {
+                // Đã hoàn thành
+                setProgressMessage(
+                  `Hoàn thành! Đã lấy ${totalInvoicesFetched.toLocaleString(
+                    "vi-VN"
+                  )}/${grandTotalInvoices.toLocaleString(
+                    "vi-VN"
+                  )} hóa đơn (100%)`
+                );
+              } else if (grandTotalInvoices > 0) {
+                const seriesInfo =
+                  seriesTotal > 0
+                    ? `${invoicesForCurrentSeries.toLocaleString(
+                        "vi-VN"
+                      )}/${seriesTotal.toLocaleString("vi-VN")}`
+                    : `${invoicesForCurrentSeries.toLocaleString("vi-VN")}`;
+                setProgressMessage(
+                  `Đã lấy ${totalInvoicesFetched.toLocaleString(
+                    "vi-VN"
+                  )}/${grandTotalInvoices.toLocaleString(
+                    "vi-VN"
+                  )} hóa đơn (${percentage}%) - Ký hiệu ${currentSeriesCode}: ${seriesInfo} (${currentSeriesIndex}/${totalSeries})`
+                );
+              } else {
+                setProgressMessage(
+                  `Đã lấy ${totalInvoicesFetched.toLocaleString(
+                    "vi-VN"
+                  )} hóa đơn - Ký hiệu ${currentSeriesCode}: ${invoicesForCurrentSeries.toLocaleString(
+                    "vi-VN"
+                  )} hóa đơn (${currentSeriesIndex}/${totalSeries})`
+                );
+              }
             },
             // Callback để cập nhật dữ liệu từng phần
             (partialData, taxCode) => {
@@ -277,7 +341,13 @@ export default function Modal(props) {
               // Lưu dữ liệu vào state của Modal để có thể xuất Excel
               setCurrentInvoices(dataArray);
               // Cập nhật vào App.js
-              props.setInvoices(dataArray, taxCode, "bang-ke-ban-ra");
+              props.setInvoices(
+                dataArray,
+                taxCode,
+                "bang-ke-ban-ra",
+                fromDate,
+                toDate
+              );
             },
             // Callback khi gặp lỗi nghiêm trọng - tự động xuất Excel
             (error, savedData, taxCode) => {
@@ -324,7 +394,13 @@ export default function Modal(props) {
         if (finalData.length > 0) {
           setCurrentInvoices(finalData);
           // Luôn dùng "bang-ke-ban-ra" cho báo cáo
-          props.setInvoices(finalData, taxCode, "bang-ke-ban-ra");
+          props.setInvoices(
+            finalData,
+            taxCode,
+            "bang-ke-ban-ra",
+            fromDate,
+            toDate
+          );
           setProgressMessage(`Hoàn thành! Đã tải ${finalData.length} hóa đơn.`);
 
           // Đóng modal sau khi load xong
@@ -402,7 +478,7 @@ export default function Modal(props) {
   return (
     <div className="card">
       <Dialog
-        header="Báo cáo chi tiết hoá đơn"
+        header="Bảng kê hoá đơn"
         visible={props.visible}
         position={position}
         onShow={() => show("top")}

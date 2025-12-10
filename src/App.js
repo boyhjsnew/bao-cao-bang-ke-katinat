@@ -13,12 +13,22 @@ function App() {
   const [invoices, setInvoices] = useState([]);
   const [selectedTaxCode, setSelectedTaxCode] = useState(null); // Thêm state để lưu mã số thuế đã chọn
   const [reportType, setReportType] = useState("bang-ke-ban-ra"); // State để quản lý loại báo cáo
+  const [fromDate, setFromDate] = useState(null); // State để lưu từ ngày
+  const [toDate, setToDate] = useState(null); // State để lưu đến ngày
 
-  const handleInvoices = (invoicesData, taxCode, reportType) => {
-    // Cập nhật để nhận thêm taxCode và reportType
+  const handleInvoices = (
+    invoicesData,
+    taxCode,
+    reportType,
+    fromDateParam,
+    toDateParam
+  ) => {
+    // Cập nhật để nhận thêm taxCode, reportType, fromDate và toDate
     setInvoices(invoicesData);
     setSelectedTaxCode(taxCode); // Lưu mã số thuế đã chọn
     setReportType(reportType); // Lưu loại báo cáo đã chọn
+    setFromDate(fromDateParam); // Lưu từ ngày
+    setToDate(toDateParam); // Lưu đến ngày
   };
 
   // Function để xác định tuyến dựa trên mã số thuế và ký hiệu
@@ -626,7 +636,65 @@ function App() {
     });
   };
 
-  const addHeaderToSheet = (ws) => {
+  // Helper function để format ngày
+  const formatDateForExcel = (date) => {
+    if (!date) return "";
+    const d = new Date(date);
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  // Helper function để lấy tên tháng
+  const getMonthName = (date) => {
+    if (!date) return "";
+    const d = new Date(date);
+    const months = [
+      "tháng 1",
+      "tháng 2",
+      "tháng 3",
+      "tháng 4",
+      "tháng 5",
+      "tháng 6",
+      "tháng 7",
+      "tháng 8",
+      "tháng 9",
+      "tháng 10",
+      "tháng 11",
+      "tháng 12",
+    ];
+    return months[d.getMonth()];
+  };
+
+  const addHeaderToSheet = (ws, addTitleRows = false) => {
+    let startRow = 1;
+
+    // Thêm 2 dòng tiêu đề nếu được yêu cầu
+    if (addTitleRows && fromDate && toDate) {
+      // Thêm dòng 1: Mã số thuế - tháng
+      const taxCodeDisplay = selectedTaxCode?.code || selectedTaxCode || "N/A";
+      const monthName = getMonthName(fromDate);
+      const titleRow1 = ws.addRow([`${taxCodeDisplay} - ${monthName}`]);
+      titleRow1.getCell(1).font = { bold: true, size: 14 };
+      titleRow1.getCell(1).alignment = { horizontal: "left" };
+      ws.mergeCells(1, 1, 1, 10); // Merge 10 cột
+
+      // Thêm dòng 2: Từ ngày đến ngày
+      const fromDateStr = formatDateForExcel(fromDate);
+      const toDateStr = formatDateForExcel(toDate);
+      const titleRow2 = ws.addRow([
+        `Khoảng thời gian: Từ ngày ${fromDateStr} đến ngày ${toDateStr}`,
+      ]);
+      titleRow2.getCell(1).font = { bold: true, size: 12 };
+      titleRow2.getCell(1).alignment = { horizontal: "left" };
+      ws.mergeCells(2, 1, 2, 10); // Merge 10 cột
+
+      // Thêm dòng trống
+      ws.addRow([]);
+      startRow = 4; // Header giờ ở dòng 4
+    }
+
     const headers = [
       "#",
       "Ký hiệu",
@@ -643,7 +711,7 @@ function App() {
     ws.addRow(headers);
 
     // Áp dụng style cho tiêu đề
-    const headerRow = ws.getRow(1);
+    const headerRow = ws.getRow(startRow);
     headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
     headerRow.fill = {
       type: "pattern",
@@ -1156,15 +1224,15 @@ function App() {
       currentFileIndex++;
       currentWorkbook = new ExcelJS.Workbook();
       currentWorksheet = currentWorkbook.addWorksheet("bang-ke-ban-ra");
-      addHeaderToSheet(currentWorksheet);
+      addHeaderToSheet(currentWorksheet, false); // Không thêm tiêu đề vào file tiếp theo
       fileGroups[currentFileIndex] = [];
       currentRowCount = 1; // Header row
     };
 
     // Tạo file đầu tiên
-    addHeaderToSheet(currentWorksheet);
+    addHeaderToSheet(currentWorksheet, true); // Thêm tiêu đề vào file đầu tiên
     fileGroups[currentFileIndex] = [];
-    currentRowCount = 1; // Đã có 1 dòng header
+    currentRowCount = 4; // Đã có 3 dòng tiêu đề + 1 dòng header
 
     // Duyệt qua từng nhóm thuế suất
     for (const group of taxRateGroups) {
@@ -1374,9 +1442,61 @@ function App() {
         });
       });
 
+    // Helper function để format ngày
+    const formatDateForExcel = (date) => {
+      if (!date) return "";
+      const d = new Date(date);
+      const day = String(d.getDate()).padStart(2, "0");
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const year = d.getFullYear();
+      return `${day}/${month}/${year}`;
+    };
+
+    // Helper function để lấy tên tháng
+    const getMonthName = (date) => {
+      if (!date) return "";
+      const d = new Date(date);
+      const months = [
+        "tháng 1",
+        "tháng 2",
+        "tháng 3",
+        "tháng 4",
+        "tháng 5",
+        "tháng 6",
+        "tháng 7",
+        "tháng 8",
+        "tháng 9",
+        "tháng 10",
+        "tháng 11",
+        "tháng 12",
+      ];
+      return months[d.getMonth()];
+    };
+
     // Tạo Excel
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("bang-ke-tong-hop");
+
+    // Thêm dòng 1: Mã số thuế - tháng
+    const taxCodeDisplay = selectedTaxCode?.code || selectedTaxCode || "N/A";
+    const monthName = fromDate ? getMonthName(fromDate) : "";
+    const titleRow1 = worksheet.addRow([`${taxCodeDisplay} - ${monthName}`]);
+    titleRow1.getCell(1).font = { bold: true, size: 14 };
+    titleRow1.getCell(1).alignment = { horizontal: "left" };
+    worksheet.mergeCells(1, 1, 1, 5); // Merge 5 cột
+
+    // Thêm dòng 2: Từ ngày đến ngày
+    const fromDateStr = formatDateForExcel(fromDate);
+    const toDateStr = formatDateForExcel(toDate);
+    const titleRow2 = worksheet.addRow([
+      `Khoảng thời gian: Từ ngày ${fromDateStr} đến ngày ${toDateStr}`,
+    ]);
+    titleRow2.getCell(1).font = { bold: true, size: 12 };
+    titleRow2.getCell(1).alignment = { horizontal: "left" };
+    worksheet.mergeCells(2, 1, 2, 5); // Merge 5 cột
+
+    // Thêm dòng trống
+    worksheet.addRow([]);
 
     // Thêm header
     const headers = [
@@ -1389,7 +1509,7 @@ function App() {
     worksheet.addRow(headers);
 
     // Áp dụng style cho tiêu đề
-    const headerRow = worksheet.getRow(1);
+    const headerRow = worksheet.getRow(4); // Header giờ ở dòng 4
     headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
     headerRow.fill = {
       type: "pattern",
@@ -1716,8 +1836,8 @@ function App() {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("bang-ke-ban-ra");
 
-    // Thêm header vào sheet
-    addHeaderToSheet(worksheet);
+    // Thêm header vào sheet (có thêm tiêu đề)
+    addHeaderToSheet(worksheet, true);
 
     // Duyệt qua từng nhóm thuế suất
     taxRateGroups.forEach((group) => {

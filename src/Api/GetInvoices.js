@@ -161,7 +161,11 @@ const getInvoicesBySeriesList = async (
         const response = await axios.post(apiUrl, bodyParams, {
           headers: apiHeaders,
         });
-        return response?.data?.data || [];
+        // Trả về cả data và total từ response
+        return {
+          data: response?.data?.data || [],
+          total: response?.data?.total || 0,
+        };
       } catch (error) {
         retryCount++;
         // console.warn(
@@ -180,7 +184,7 @@ const getInvoicesBySeriesList = async (
         await new Promise((resolve) => setTimeout(resolve, 1000 * retryCount));
       }
     }
-    return [];
+    return { data: [], total: 0 };
   };
 
   try {
@@ -188,17 +192,18 @@ const getInvoicesBySeriesList = async (
     const selectedSeriesCodes = seriesList.map((series) => series.code);
     // console.log("Danh sách ký hiệu đã chọn:", selectedSeriesCodes);
 
+    // Tổng số hóa đơn từ tất cả các ký hiệu (sẽ được cập nhật khi lấy được total từ API)
+    let grandTotalInvoices = 0;
+    const seriesTotals = {}; // Lưu total của từng ký hiệu
+
     // Gọi API cho từng ký hiệu trong danh sách
     for (let i = 0; i < selectedSeriesCodes.length; i++) {
       const khieu = selectedSeriesCodes[i];
 
-      // Gọi callback để cập nhật tiến trình
-      if (progressCallback) {
-        progressCallback(i + 1, selectedSeriesCodes.length);
-      }
-
       // console.log(`Đang lấy dữ liệu cho ký hiệu: ${khieu}`);
       let start = 0; // Reset start cho mỗi ký hiệu
+      let totalInvoicesForThisSeries = 0; // Tổng số hóa đơn cho ký hiệu hiện tại
+      let seriesTotal = 0; // Total từ API cho ký hiệu này
 
       while (true) {
         const body = {
@@ -209,12 +214,12 @@ const getInvoicesBySeriesList = async (
           coChiTiet: true,
         };
 
-        let resData = [];
+        let responseResult = { data: [], total: 0 };
         let success = false;
 
         // Retry logic khi gặp lỗi
         try {
-          resData = await fetchWithRetry(url, body, headers, khieu);
+          responseResult = await fetchWithRetry(url, body, headers, khieu);
           success = true;
         } catch (error) {
           // Đã thử hết số lần, bỏ qua batch này
@@ -240,6 +245,17 @@ const getInvoicesBySeriesList = async (
           continue;
         }
 
+        const resData = responseResult.data;
+        const resTotal = responseResult.total;
+
+        // Lấy total từ response đầu tiên của mỗi ký hiệu
+        if (start === 0 && resTotal > 0) {
+          seriesTotal = resTotal;
+          seriesTotals[khieu] = resTotal;
+          // Cập nhật tổng số hóa đơn (chỉ cộng thêm nếu chưa có trong seriesTotals)
+          grandTotalInvoices += resTotal;
+        }
+
         if (!Array.isArray(resData) || resData.length === 0) break;
 
         // Thêm ký hiệu vào mỗi record để đảm bảo mapping đúng
@@ -252,6 +268,20 @@ const getInvoicesBySeriesList = async (
           .filter((item) => !isInvoiceReplaced(item)); // Loại bỏ hóa đơn bị thay thế (InvoiceStatus === 6)
 
         allData.push(...processedData);
+        totalInvoicesForThisSeries += processedData.length;
+
+        // Gọi callback để cập nhật tiến trình với số hóa đơn đã lấy
+        if (progressCallback) {
+          progressCallback(
+            allData.length, // Tổng số hóa đơn đã lấy
+            grandTotalInvoices, // Tổng số hóa đơn từ API (total)
+            i + 1, // Ký hiệu hiện tại
+            selectedSeriesCodes.length, // Tổng số ký hiệu
+            khieu, // Ký hiệu đang xử lý
+            totalInvoicesForThisSeries, // Số hóa đơn đã lấy cho ký hiệu này
+            seriesTotal // Total từ API cho ký hiệu này
+          );
+        }
 
         // Cập nhật dữ liệu từng phần sau mỗi batch thành công
         if (dataUpdateCallback && allData.length > 0) {
@@ -286,6 +316,19 @@ const getInvoicesBySeriesList = async (
 
     // Sắp xếp lại toàn bộ dữ liệu theo số hóa đơn
     allData.sort((a, b) => a.inv_invoiceNumber - b.inv_invoiceNumber);
+
+    // Gọi callback cuối cùng để set progress = 100%
+    if (progressCallback) {
+      progressCallback(
+        allData.length, // Tổng số hóa đơn đã lấy
+        grandTotalInvoices, // Tổng số hóa đơn từ API (total)
+        selectedSeriesCodes.length, // Tổng số ký hiệu
+        selectedSeriesCodes.length, // Tổng số ký hiệu
+        "", // Không có ký hiệu đang xử lý
+        allData.length, // Tổng số hóa đơn đã lấy
+        grandTotalInvoices // Total
+      );
+    }
 
     // Log để debug
     // console.log("=== API: Tổng hợp tất cả ký hiệu ===");
