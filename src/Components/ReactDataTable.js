@@ -446,10 +446,10 @@ export default function ReactDataTable(props) {
                                 color: "#856404",
                               }}
                             >
-                              ... (Còn {remainingCount.toLocaleString("vi-VN")}{" "}
+                              {/* ... (Còn {remainingCount.toLocaleString("vi-VN")}{" "}
                               hóa đơn nữa, tổng cộng{" "}
                               {groupInvoices.length.toLocaleString("vi-VN")} hóa
-                              đơn. Dữ liệu Excel sẽ đầy đủ tất cả)
+                              đơn. Dữ liệu Excel sẽ đầy đủ tất cả) */}
                             </td>
                           </tr>
                         )}
