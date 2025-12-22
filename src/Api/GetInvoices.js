@@ -9,6 +9,42 @@ const isInvoiceReplaced = (invoice) => {
   return status === 6;
 };
 
+// Helper function để kiểm tra hóa đơn có trang_thai lỗi không
+const isInvoiceError = (invoice) => {
+  // Kiểm tra trang_thai (nếu có)
+  const trangThai = invoice.trang_thai;
+  
+  // Nếu trang_thai là null, undefined, hoặc có giá trị không hợp lệ thì coi là lỗi
+  // Có thể mở rộng logic này để kiểm tra các giá trị cụ thể khác
+  if (trangThai === null || trangThai === undefined) {
+    return false; // Không có trang_thai thì không coi là lỗi (có thể dùng trang_thai_hd)
+  }
+  
+  // Loại bỏ hóa đơn có trang_thai === 5 (hóa đơn có lỗi)
+  if (trangThai === 5 || trangThai === "5") {
+    return true;
+  }
+  
+  // Nếu trang_thai là chuỗi rỗng hoặc có giá trị "lỗi", "error", "fail" thì coi là lỗi
+  if (typeof trangThai === 'string') {
+    const lowerTrangThai = trangThai.toLowerCase().trim();
+    if (lowerTrangThai === '' || 
+        lowerTrangThai === 'lỗi' || 
+        lowerTrangThai === 'error' || 
+        lowerTrangThai === 'fail' ||
+        lowerTrangThai === 'false') {
+      return true;
+    }
+  }
+  
+  // Nếu trang_thai là boolean false thì coi là lỗi
+  if (trangThai === false) {
+    return true;
+  }
+  
+  return false;
+};
+
 const getInvoices = async (taxCode, tuNgay, denngay, khieu) => {
   const url = `https://${taxCode}.minvoice.app/api/InvoiceApi78/GetInvoices`;
 
@@ -43,7 +79,7 @@ const getInvoices = async (taxCode, tuNgay, denngay, khieu) => {
           inv_invoiceSeries: khieu,
           inv_sellerTaxCode: taxCode, // Lưu MST người bán (seller) - đây là MST được nhập vào
         }))
-        .filter((item) => !isInvoiceReplaced(item)); // Loại bỏ hóa đơn bị thay thế (InvoiceStatus === 6)
+        .filter((item) => !isInvoiceReplaced(item) && !isInvoiceError(item)); // Loại bỏ hóa đơn bị thay thế và hóa đơn có trang_thai lỗi
 
       allData.push(...processedData);
 
@@ -51,8 +87,8 @@ const getInvoices = async (taxCode, tuNgay, denngay, khieu) => {
       start += limit;
     }
 
-    // Lọc bỏ hóa đơn bị thay thế trước khi sắp xếp (đảm bảo an toàn)
-    allData = allData.filter((item) => !isInvoiceReplaced(item));
+    // Lọc bỏ hóa đơn bị thay thế và hóa đơn có trang_thai lỗi trước khi sắp xếp (đảm bảo an toàn)
+    allData = allData.filter((item) => !isInvoiceReplaced(item) && !isInvoiceError(item));
 
     allData.sort((a, b) => a.inv_invoiceNumber - b.inv_invoiceNumber);
 
@@ -265,7 +301,7 @@ const getInvoicesBySeriesList = async (
             inv_invoiceSeries: khieu, // Đảm bảo ký hiệu được gán đúng
             inv_sellerTaxCode: taxCode, // Lưu MST người bán (seller) - đây là MST được nhập vào
           }))
-          .filter((item) => !isInvoiceReplaced(item)); // Loại bỏ hóa đơn bị thay thế (InvoiceStatus === 6)
+          .filter((item) => !isInvoiceReplaced(item) && !isInvoiceError(item)); // Loại bỏ hóa đơn bị thay thế và hóa đơn có trang_thai lỗi
 
         allData.push(...processedData);
         totalInvoicesForThisSeries += processedData.length;
@@ -285,9 +321,9 @@ const getInvoicesBySeriesList = async (
 
         // Cập nhật dữ liệu từng phần sau mỗi batch thành công
         if (dataUpdateCallback && allData.length > 0) {
-          // Lọc lại để đảm bảo không có hóa đơn bị thay thế
+          // Lọc lại để đảm bảo không có hóa đơn bị thay thế và hóa đơn có trang_thai lỗi
           const filteredData = allData.filter(
-            (item) => !isInvoiceReplaced(item)
+            (item) => !isInvoiceReplaced(item) && !isInvoiceError(item)
           );
           const sortedData = [...filteredData].sort(
             (a, b) => a.inv_invoiceNumber - b.inv_invoiceNumber
@@ -301,8 +337,8 @@ const getInvoicesBySeriesList = async (
 
       // Cập nhật dữ liệu từng phần sau mỗi ký hiệu (nếu chưa được cập nhật trong vòng lặp)
       if (dataUpdateCallback && allData.length > 0) {
-        // Lọc lại để đảm bảo không có hóa đơn bị thay thế
-        const filteredData = allData.filter((item) => !isInvoiceReplaced(item));
+        // Lọc lại để đảm bảo không có hóa đơn bị thay thế và hóa đơn có trang_thai lỗi
+        const filteredData = allData.filter((item) => !isInvoiceReplaced(item) && !isInvoiceError(item));
         // Sắp xếp tạm thời dữ liệu hiện có
         const sortedData = [...filteredData].sort(
           (a, b) => a.inv_invoiceNumber - b.inv_invoiceNumber
@@ -311,8 +347,8 @@ const getInvoicesBySeriesList = async (
       }
     }
 
-    // Lọc bỏ hóa đơn bị thay thế trước khi sắp xếp
-    allData = allData.filter((item) => !isInvoiceReplaced(item));
+    // Lọc bỏ hóa đơn bị thay thế và hóa đơn có trang_thai lỗi trước khi sắp xếp
+    allData = allData.filter((item) => !isInvoiceReplaced(item) && !isInvoiceError(item));
 
     // Sắp xếp lại toàn bộ dữ liệu theo số hóa đơn
     allData.sort((a, b) => a.inv_invoiceNumber - b.inv_invoiceNumber);
@@ -355,8 +391,8 @@ const getInvoicesBySeriesList = async (
       //   `⚠️ Đã gặp lỗi nghiêm trọng nhưng vẫn trả về ${allData.length} hóa đơn đã tải được`
       // );
 
-      // Lọc bỏ hóa đơn bị thay thế trước khi trả về
-      const filteredData = allData.filter((item) => !isInvoiceReplaced(item));
+      // Lọc bỏ hóa đơn bị thay thế và hóa đơn có trang_thai lỗi trước khi trả về
+      const filteredData = allData.filter((item) => !isInvoiceReplaced(item) && !isInvoiceError(item));
 
       // Gọi callback để thông báo lỗi nghiêm trọng (để tự động xuất Excel)
       if (errorCallback && typeof errorCallback === "function") {
